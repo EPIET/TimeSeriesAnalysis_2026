@@ -1,10 +1,10 @@
 # Welcome {.unnumbered}
 
-![](TSA25_header_LP.png){fig-align="center"}
+![](logo_TSA_2026.png){fig-align="center"}
 
 Welcome to the **Time Series Analysis** (**TSA**) module webpage of the *ECDC EPIET & EUPHEM* Program.
 
-Here you will find the Practical Sessions 3-7, 9 and 10 of the TSA module 2025, including the instructions, guide and solution of the proposed exercises. Sessions 8 and 11 will be provided as stand-alone exercises
+Here you will find the Practical Sessions 3-7, 9 and 10 of the TSA module 2026, including the instructions, guide and solution of the proposed exercises. Sessions 8 and 11 will be provided as stand-alone exercises
 
 # Copyright and License {.unnumbered}
 
@@ -12,7 +12,7 @@ This exercises were originally designed in 2011 for the training needs of EPIET,
 
 **Revisions**:
 
--   Exercises were reviewed, updated and adapted to this web format for TSA 2025 by Tanja Charles, Sharon Kuhlmann, Soledad Colombe, Joana Gomes and Javier Del Águila
+-   Exercises were reviewed, updated and adapted to this web format for TSA 2026 by Tanja Charles, Sharon Kuhlmann, Soledad Colombe, Joana Gomes Dias and Javier Del Águila
 
 Information and documents made available on ECDC web pages are public and may be reproduced and/or distributed, totally or in part, irrespective of the means and/or the formats used, for non-commercial purposes, provided that ECDC is always acknowledged as the source of the material. Such acknowledgement must be included in each copy of the material. Any reproduction for commercial purposes will require licensing or prior permission. Citations may be made from such material without prior permission, provided the source is always acknowledged. (http://ecdc.europa.eu/en/pages/legalnotice.aspx).
 
