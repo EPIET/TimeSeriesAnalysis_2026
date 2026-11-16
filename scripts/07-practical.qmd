@@ -244,7 +244,7 @@ ggplot(data = pred.mort) +
 
 *Interpret the plot. When did the excess number of deaths increase most? What does negative excess number of deaths mean?*
 
-## Task 7.4 (Optional) {#task-7-4 .unnumbered}
+## Task 7.3 (Optional) {#task-7-3 .unnumbered}
 
 *Plot the entire series of observed data from 2010 to 2023, and the fitted number from the model based on 2010-2019.*
 
@@ -329,7 +329,7 @@ ggplot(data = mort_2010_2023) +
 
 ```
 
-## Task 7.5 (Optional) {#task-7-5 .unnumbered}
+## Task 7.4 (Optional) {#task-7-4 .unnumbered}
 
 Compare the excess number of deaths in 2020 with those in 2018 and 2019.
 

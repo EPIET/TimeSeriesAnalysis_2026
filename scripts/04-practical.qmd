@@ -128,7 +128,7 @@ ggplot(data = mortz, aes(x = date_index)) +
 
 ## Task 4.2 {#task-4-2 .unnumbered .unnumbered}
 
-Assess visually the existence of a long-term trend and periodicity in the `mortaagg` dataset by using smoothing techniques.
+Assess visually the existence of a long-term trend and periodicity in the `mortagg` dataset by using smoothing techniques.
 
 Consider: where would you centre the smoothing window and why? What is the effect of using different smoothing window centring options? Test!
 
@@ -432,13 +432,7 @@ IRR_trend_pop <- exp(cbind(Estimate=mort_poissontrend_pop$coef, confint(mort_poi
 
 The summary() function will only provide the coefficients in the original log scale of the poisson model. Another way of obtaining the IRR is by using `tbl_regression` with the argument `exponentiate = TRUE`:
 
-```{r: task-4-4-regression-pois-pop-IRR}  
-mort_poissontrend_pop %>%         
-  gtsummary::tbl_regression(            
-    exponentiate = TRUE,
-    estimate_fun = ~style_number(.x, digits = 4)
-  )
-```
+`{r: task-4-4-regression-pois-pop-IRR}   mort_poissontrend_pop %>%            gtsummary::tbl_regression(                 exponentiate = TRUE,     estimate_fun = ~style_number(.x, digits = 4)   )`
 
 plot the predicted and the original values:
 

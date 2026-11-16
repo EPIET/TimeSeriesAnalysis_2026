@@ -122,7 +122,7 @@ ggplot(data = rota_lg) +
 
 ## Notes: 
 # You can get line breaks in labels using \n
-# You can also make all y-axes the same by using scales = "fixed_y"
+# You can also make all y-axes the same by using scales = "fixed"
 ```
 
 We want to see whether the number of cases changed after the introduction of the vaccine.
@@ -233,7 +233,7 @@ comparison_p_nb <- gtsummary::tbl_merge(
 comparison_p_nb
 ```
 
-The AIC comparison proves how the negative binomial model outperforms the Poisson model. Also, realize how the index coefficient shifted from a tiny negative to a tiny positive overal trend, and how the p-value has greatly increased (but it still significant)
+The AIC comparison proves how the negative binomial model outperforms the Poisson model. 
 
 Let's use negative binomial models for the rest of the practical.
 
