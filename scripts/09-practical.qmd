@@ -28,7 +28,8 @@ pacman::p_load(
   patchwork,
   gtsummary,
   ciTools,
-  tidyverse
+  tidyverse,
+  broom.helpers
 )
 
 # Create tsa_theme from previous exercise
