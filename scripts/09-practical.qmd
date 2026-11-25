@@ -1,4 +1,4 @@
-# Practical Session 9: The relation between two time series {.unnumbered}
+# Practical Session: The relation between two time series {.unnumbered}
 
 ## Session inject {.unnumbered}
 
@@ -14,7 +14,7 @@ By the end of this session, participants should be able to:
 
 ### Source code {.unnumbered}
 
-```{r, knitr-global-chunk-9t, include=FALSE, cache=FALSE}
+```{r, knitr-global-chunk-t, include=FALSE, cache=FALSE}
 # Install pacman if not installed already, and activate it
 if (!require("pacman")) install.packages("pacman")
 
@@ -47,7 +47,7 @@ tsa_theme <- theme_bw() +
 
 ```
 
-## 9.1 - Asses the effect of external variables {#task-9-1 .unnumbered}
+## 1 - Asses the effect of external variables {#task-1 .unnumbered}
 
 -   **Objective**: Using the **aragon** dataset, assess the effect of ambient temperature (using average weekly maximum temperature) on mortality in the autonomous community of Aragón. Is this effect uniform throughout the year?
 
@@ -55,13 +55,13 @@ tsa_theme <- theme_bw() +
 
 Open the dataset `aragon.csv`. There you will find mean maximum temperature and mortality data for the autonomous community of Aragon by week.
 
-```{r, task-9-1-import-data}
+```{r, task-1-import-data}
 aragon <- import(here("data", "aragon.csv")) 
 ```
 
 Convert the data to a time series object (`aragon_ts`) and plot both temperature and mortality variables using `ggplot` and `patchwork` to join both plots together
 
-```{r, task-9-1-convert-data-ts-tidy}
+```{r, task-1-convert-data-ts-tidy}
 # Create ts dataframe with yearweek index
 aragon_ts <- aragon %>% 
   mutate(
@@ -98,7 +98,7 @@ aragon_ts_two_plot
 
 Generate variables for sine and cosine for annual oscillation.
 
-```{r, task-9-1-data-sin-cos}
+```{r, task-1-data-sin-cos}
 aragon_ts <- aragon_ts %>% 
   mutate(sin52 = sin(2 * pi * date / 52),
          cos52 = cos(2 * pi * date / 52))
@@ -106,7 +106,7 @@ aragon_ts <- aragon_ts %>%
 
 Fit a poisson regression model with a simple trend to the weekly number of deaths, accounting for seasonality.
 
-```{r, task-9-1-data-lm-model}
+```{r, task-1-data-lm-model}
 aragmodel1 <- glm(cases ~ index + sin52 + cos52,
                            family = "poisson",
                            data = aragon_ts)
@@ -114,7 +114,7 @@ aragmodel1 <- glm(cases ~ index + sin52 + cos52,
 
 Plot the predicted weekly number of deaths.
 
-```{r, task-9-1-data-lm-model-plot-tidy}
+```{r, task-1-data-lm-model-plot-tidy}
 
 ggplot(data = aragon_ts) +
   geom_point(mapping = aes(x = year_week, y = cases), alpha = 0.2) +
@@ -144,14 +144,14 @@ When you plotted the weekly number of deaths in Aragon, perhaps you noticed that
 
 First, you need to create a new winter variable, defined as the time between weeks 49 and 8:
 
-```{r, task-9-1-data-winter}
+```{r, task-1-data-winter}
 aragon_ts <- aragon_ts %>% 
     mutate(winter = (week >= 49 | week <= 8))
 ```
 
 Now you will run two models: one including temperature as a main effect (`aragmodel2`), and other including an interaction term with winter (`aragmodel3`). Compare them and decide which is better
 
-```{r, task-9-1-data-winter-lm-model}
+```{r, task-1-data-winter-lm-model}
 # Model with only main effect
 aragmodel2 <- glm(cases ~ index + sin52 + cos52 + tmax,
                            family = "poisson",
@@ -165,7 +165,7 @@ aragmodel3 <- glm(cases ~ index + sin52 + cos52 + winter * tmax,
 
 We compare both model's AIC below.
 
-```{r, task-9-1-data-winter-lm-mtable1-echo, eval=FALSE, echo=TRUE, purl=TRUE}
+```{r, task-1-data-winter-lm-mtable1-echo, eval=FALSE, echo=TRUE, purl=TRUE}
 # Easiest, most direct way
 AIC(aragmodel2); AIC(aragmodel3)
 ```
@@ -195,7 +195,7 @@ Note that `winter * tmax` tells R to include terms in the model for `winter`, `t
 
 Discuss the output of the two models. Does the interpretation change when winter is taken into account as an interaction term along with temperature?
 
-## 9.2 - Accounting for delayed effects (Optional) {#task-9-2 .unnumbered}
+## 2 - Accounting for delayed effects (Optional) {#task-2 .unnumbered}
 
 It has been argued by experts that low temperatures in winter might be “slow killers”; that is, very low temperatures in winter do not result in a peak in mortality on the same day/week as they are observed, but rather after some time has elapsed. On the other hand, very high temperatures in summer are “fast killers”; they are associated with peaks in mortality very fast, i.e. heat waves kill people fast. **Can you find evidence for this in Aragón?**
 
@@ -205,7 +205,7 @@ It has been argued by experts that low temperatures in winter might be “slow k
 
 For a given week, the value of `tmax` is lagged by 1 in respect to the previous week's value.
 
-```{r, task-9-2-data-winter-temp-lag}
+```{r, task-2-data-winter-temp-lag}
 # Create lag variable
 aragon_ts <- aragon_ts %>% 
   mutate(L1.tmax = dplyr::lag(x = tmax, n = 1))
@@ -213,7 +213,7 @@ aragon_ts <- aragon_ts %>%
 
 Create a new model named `aragmodel4` including the lag variable, and compare it with the previous model `aragmodel3`. ***What can you conclude from it?***
 
-```{r, task-9-2-data-winter-temp-lag-lm-model}
+```{r, task-2-data-winter-temp-lag-lm-model}
 aragmodel4 <- glm(cases ~ index + sin52 + cos52 + winter * tmax + L1.tmax,
                            family = "poisson",
                            data = aragon_ts)
@@ -237,7 +237,7 @@ The lagged effect of temperature was not signifcant in `aragmodel4` but you are 
 
 First, create `aragon_ts.winter` and `aragon_ts.notwinter`
 
-```{r, task-9-2-data-winter-nonwinter}
+```{r, task-2-data-winter-nonwinter}
 ## winter subset
 aragon_ts.winter <- 
     aragon_ts %>% 
@@ -251,7 +251,7 @@ aragon_ts.notwinter <-
 
 Now, run two new models `aragmodel5` for the winter data and `aragmodel6` for non-winter data. Think carefully about how you will compare them: ***is the AIC/BIC criteria still valid for this task***?
 
-```{r, task-9-2-data-winter-temp-lag-lm-aragmodel5}
+```{r, task-2-data-winter-temp-lag-lm-aragmodel5}
 # Winter model
 aragmodel5 <- glm(cases ~ index + sin52 + cos52 + L1.tmax,
                            family = "poisson",
