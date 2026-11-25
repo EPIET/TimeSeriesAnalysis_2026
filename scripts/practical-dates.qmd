@@ -85,7 +85,9 @@ To define the index, we can make use of the `tsibble` built-in functions such as
 ```{r, task-1-tsibble-week-base}
 dis1_ts <- dis1 %>%
   mutate(date_index = make_yearweek(year = year, week = week)) %>%
-  as_tsibble(index = date_index)
+  arrange(date_index) %>% 
+  as_tsibble(index = date_index) %>%
+  fill_gaps() #this fills in variables with NA where a date was missing in the series
 
 head(dis1_ts, 5)
 ```
@@ -182,16 +184,18 @@ Have a look at the new variables that have been created. `date_isowk` is the ISO
 You have several observations in the same week since you have data from different days and one value corresponds to one case. Use the `count` function to aggregate the data.
 
 ```{r, task-1-dis3-isoweek-aggr-base}
-dis3_v2 <- dis3 %>%
+dis3_agg_wk <- dis3 %>%
     count(date_isowk)
 
-head(dis3_v2)
+head(dis3_agg_wk)
 ```
 
 ```{r, task-1-dis3-isoweek-plot-tidy}
-dis3_ts <- dis3_v2 %>%
+dis3_ts <- dis3_agg_wk %>%
     mutate(date_index = yearweek(x = date_isowk, week_start = 1L)) %>%
-    as_tsibble(index = date_index)
+   arrange(date_index) %>% 
+    as_tsibble(index = date_index) %>%
+  fill_gaps() #this fills in variables with NA where a date was missing in the series
 
 
 ggplot(data = dis3_ts) +
@@ -206,14 +210,16 @@ ggplot(data = dis3_ts) +
 Aggregating cases by month is another possibility.
 
 ```{r, task-1-dis3-month-plot-tidy}
-dis3_agg <- dis3 %>%
+dis3_agg_ym <- dis3 %>%
     count(year, month)
 
-dis3_ts_v2 <- dis3_agg %>%
+dis3_ts_ym <- dis3_agg_ym %>%
     mutate(date_index = make_yearmonth(year = year, month = month)) %>%
-    as_tsibble(index = date_index)
+   arrange(date_index) %>% 
+    as_tsibble(index = date_index) %>%
+  fill_gaps() #this fills in variables with NA where a date was missing in the series
 
-ggplot(data = dis3_ts_v2) +
+ggplot(data = dis3_ts_ym) +
     geom_line(mapping = aes(x = date_index, y = n)) +
     scale_x_yearweek(date_labels = "%Y") +
     labs(x = "Date", 
@@ -245,7 +251,7 @@ You have separate columns containing the counts. To plot this data, you need to 
 The function `pivot_longer` can perform such transformation.
 
 ```{r, task-2-opt-dis2-pivot-longer-tidy}
-dis2l <- dis2 %>%
+dis2_long <- dis2 %>%
   pivot_longer(
       cols = -year, 
       names_to = "month", 
@@ -254,17 +260,19 @@ dis2l <- dis2 %>%
   mutate(month = as_factor(month)) %>%  # as_factor sets levels in the order they appear
   arrange(year, month)
 
-str(dis2l)
-head(dis2l)
+str(dis2_long)
+head(dis2_long)
     
 
-dis2l_agg <- dis2l %>%
+dis2_agg_ym <- dis2_long %>%
     mutate(date_index = make_yearmonth(year = year, month = month)) %>%
-    as_tsibble(index = date_index)
+   arrange(date_index) %>% 
+    as_tsibble(index = date_index) %>%
+  fill_gaps() #this fills in variables with NA where a date was missing in the series
 
-head(dis2l_agg)
+head(dis2_agg_ym)
 
-ggplot(data = dis2l_agg) +
+ggplot(data = dis2_agg_ym) +
     geom_line(mapping = aes(x = date_index, y = case)) +
     scale_x_yearweek(date_labels = "%Y") +
     labs(x = "Date", 

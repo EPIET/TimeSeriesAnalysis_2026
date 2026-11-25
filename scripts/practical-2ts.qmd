@@ -68,7 +68,9 @@ aragon_ts <- aragon %>%
     year_week = make_yearweek(year = year, week = week),
     index = seq.int(from = 1, to = nrow(aragon))
   ) %>% 
-  as_tsibble(index = index)
+   arrange(index) %>%
+  as_tsibble(index = index)  %>%
+  fill_gaps() 
 
 # Temperature plot   
 aragon_ts_tmax_plot <- ggplot(data = aragon_ts) +

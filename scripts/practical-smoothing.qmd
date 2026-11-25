@@ -66,7 +66,7 @@ Moving averages model a time series by calculating the numerical mean of the val
 Load the `mortagg.Rdata` dataset.
 
 ```{r, task-1-import-data}
-load(here("data", "mortagg2.Rdata"))
+load(here("data", "mortagg.Rdata"))
 ```
 
 Inspect the data.
@@ -84,13 +84,15 @@ skimr::skim(mortagg)
 Create a time series object with `tsibble`, using the total case counts and plot the time series.
 
 ```{r, task-1-mort-aggr-week-plot-tidy}
-mortz <-
+mort_ts <-
   mortagg %>%
   mutate(date_index = make_yearweek(year = year, week = week)) %>%
-  as_tsibble(index = date_index)
+  arrange(date_index) %>%
+  as_tsibble(index = date_index) %>%
+  fill_gaps()
 
 
-ggplot(data = mortz) +
+ggplot(data = mort_ts) +
   geom_line(mapping = aes(x = date_index, y = cases)) +
   scale_x_yearweek(date_labels = "%Y-%W", date_breaks = "1 year") +
   labs(x = "Year Week", y = "Number of Deaths", title = "Spain: number of deaths per week") +
@@ -99,7 +101,7 @@ ggplot(data = mortz) +
 
 ```{r, task-1-mort-aggr-week-plot2-tidy}
 ## Adjusting y-axis scale
-ggplot(data = mortz) +
+ggplot(data = mort_ts) +
   geom_line(mapping = aes(x = date_index, y = cases)) +
   scale_x_yearweek(date_labels = "%Y-%W", date_breaks = "1 year") +
   scale_y_continuous(limits = c(0, NA)) +
@@ -115,7 +117,7 @@ Create a similar plot for men and women.
 
 colors <- c("cases_m"="green", "cases_f"="black")
 
-ggplot(data = mortz, aes(x = date_index)) +
+ggplot(data = mort_ts, aes(x = date_index)) +
   geom_line(mapping = aes(y = cases_m, colour = "cases_m"), lwd=1) +
   geom_line(mapping = aes(y = cases_f, colour = "cases_f"), lwd=1) + 
   scale_x_yearweek(date_labels = "%Y-%W", date_breaks = "1 year") +
@@ -149,8 +151,8 @@ For each record, create the following various types of moving average.
 Compare results.
 
 ```{r, task-2-mort-MAx}
-mortzma <-
-  mortz %>%
+mort_ts_ma <-
+  mort_ts %>%
   mutate(
     MA5a = slide_index_dbl(
       .x = cases,
@@ -179,7 +181,7 @@ mortzma <-
   )
 
 # view first 10 lines of data
-head(mortzma, 10)
+head(mort_ts_ma, 10)
 ```
 
 The `slide_index_dbl` is a `slider` package function designed to run a pre-specified function on a rolling window of a numeric (`_dbl`) variable, ordered by an index time (date or date-time) variable. A full description of this function can be found by running the following command: `?slide_index_dbl`
@@ -202,7 +204,7 @@ We applied a more complicated function to compute `MA5c`, taking a backwards mov
 
 colors <- c("cases"="black", "MA5a"="red", "MA5b"="blue", "MA5c"="brown")
 
-ggplot(data = mortzma, mapping = aes(x = date_index)) +
+ggplot(data = mort_ts_ma, mapping = aes(x = date_index)) +
   geom_line(mapping = aes(y = cases, colour = "cases")) +
   geom_line(mapping = aes(y = MA5a, colour = "MA5a")) +
   geom_line(mapping = aes(y = MA5b, colour = "MA5b")) +
@@ -228,8 +230,8 @@ Why do you think we have chosen these windows for the moving average?
 To better observe the general trend, we need to find the length of the moving average that will erase the seasonal component. Various lengths can be tried; here we have used 25, 51 and 103.
 
 ```{r, task-2-mort-MAx-longer-length}
-mortzma2 <-
-  mortz %>%
+mort_ts_ma2 <-
+  mort_ts %>%
   mutate(
     MA25 = slide_index_dbl(
       .x = cases,
@@ -261,15 +263,15 @@ mortzma2 <-
   )
 
 ## Visually inspect data
-slice(mortzma2, 20:30)
-slice(mortzma2, 45:55)
-slice(mortzma2, 95:105)
+slice(mort_ts_ma2, 20:30)
+slice(mort_ts_ma2, 45:55)
+slice(mort_ts_ma2, 95:105)
 ```
 
-You can use `View` to examine the first rows of `mortzma2.`
+You can use `View` to examine the first rows of `mort_ts_ma2.`
 
-```{r, task-2-view-mortzma2, eval=FALSE}
-View(mortzma2)
+```{r, task-2-view-mort_ts_ma2, eval=FALSE}
+View(mort_ts_ma2)
 ```
 
 Plot the times series with the different moving averages.
@@ -279,7 +281,7 @@ Plot the times series with the different moving averages.
 
 colors <- c("cases"="black", "MA25"="red", "MA51"="blue", "MA103"="orange")
 
-ggplot(data = mortzma2, mapping = aes(x = date_index)) +
+ggplot(data = mort_ts_ma2, mapping = aes(x = date_index)) +
   geom_line(mapping = aes(y = cases, colour = "cases"), linewidth=1) +
   geom_line(mapping = aes(y = MA25, colour = "MA25"), linewidth=1.2) +
   geom_line(mapping = aes(y = MA51, colour = "MA51"), linewidth=1.2) +
@@ -300,7 +302,7 @@ Moving average is only one way of smoothing. Other ways of smoothing the data to
 The `geom_smooth` provides a smoothing curve using a LOESS method.
 
 ```{r task-2-mort-MAx-scatterplot-tidy, message=FALSE, warning=FALSE}
-ggplot(mortz, mapping = aes(x = date_index, y = cases)) +
+ggplot(mort_ts, mapping = aes(x = date_index, y = cases)) +
   geom_point(alpha = 0.5) +
   geom_smooth(se = TRUE) +
   scale_x_yearweek(date_labels = "%Y-%W", 
@@ -315,7 +317,7 @@ ggplot(mortz, mapping = aes(x = date_index, y = cases)) +
 We can change the degree of smoothing by adding a `span` option. The `span` controls the amount of smoothing for the default loess smoother; smaller numbers produce wigglier lines, and larger numbers produce smoother lines.
 
 ```{r, task-2-mort-MAx-scatterplot-span-tidy2}
-ggplot(data = mortz, mapping = aes(x = date_index, y = cases)) +
+ggplot(data = mort_ts, mapping = aes(x = date_index, y = cases)) +
   geom_point(alpha = 0.5) +
   geom_smooth(se = TRUE, span = 0.1) +
   scale_x_yearweek(date_labels = "%Y-%W", date_breaks = "1 year") +
@@ -327,7 +329,7 @@ ggplot(data = mortz, mapping = aes(x = date_index, y = cases)) +
 In ggplot(), we can also use `stat_smooth`, which provides a smoothing curve using a LOESS method, and were wee can change the degree of smoothing by adding a `span` option. The `span` controls the amount of smoothing for the default loess smoother; smaller numbers produce wigglier lines, and larger numbers produce smoother lines.
 
 ```{r, task-2-mort-MAx-scatterplot-span-tidy}
-ggplot(data = mortz, mapping = aes(x = date_index, y = cases)) +
+ggplot(data = mort_ts, mapping = aes(x = date_index, y = cases)) +
   geom_point(alpha = 0.5) +
   stat_smooth(se = TRUE, span=0.1) +
   scale_x_yearweek(date_labels = "%Y-%W", date_breaks = "1 year") +
@@ -348,13 +350,13 @@ Assess statistically whether the registered number of deaths has been stable in 
 Using regression methods against the time variable is a simple and familiar way to look at trends and test the slope. The kind of regression and interpretation you will use depends on the nature of your dependent variable (outcome), in this case, the number (count) of registered deaths. Time will be represented by a variable that simply enumerates the observations; in other words, time is a variable with values from 1 (the first observation in time; here week 1, 2010) to `n` (the last observation in time; here week 52, 2019).
 
 ```{r, task-3-regression-poi}
-mortz <-
-  mortz %>%
+mort_ts <-
+  mort_ts %>%
   mutate(index = seq.int(from = 1, to = nrow(.)))
 
 mort_poissontrend <- glm(formula = cases ~ index,
                           family = "poisson",
-                          data = mortz
+                          data = mort_ts
 )
 
 ```
@@ -378,7 +380,7 @@ Plot the fitted values against the observed ones.
 ```{r, task-3-regression-glm-plot-tidy}
 colors <- c("observed"="black", "fitted"="blue")
 
-ggplot(data = mortz, mapping = aes(x = date_index)) +
+ggplot(data = mort_ts, mapping = aes(x = date_index)) +
   geom_point(mapping = aes(y = cases, colour="observed"), alpha = 0.5) +
   geom_line(mapping = aes(y = fitted(mort_poissontrend), colour = "fitted"), linewidth=1.1) +
   scale_y_continuous(limits = c(0, NA)) +
@@ -417,7 +419,7 @@ To take the population into account, we need to include the population in the mo
 
 ```{r, task-opt-regression-pois}
 mort_poissontrend_pop <- glm(cases ~  index + offset(log(pop)),
-                          data = mortz,
+                          data = mort_ts,
                           family = "poisson"
                         )
 
@@ -437,7 +439,7 @@ The summary() function will only provide the coefficients in the original log sc
 plot the predicted and the original values:
 
 ```{r, task-opt-regression-pois-pop_plot-tidy}
-ggplot(data = mortz, mapping = aes(x = date_index)) +
+ggplot(data = mort_ts, mapping = aes(x = date_index)) +
   geom_point(mapping = aes(y = cases/pop), alpha = 0.5) +
   geom_line(mapping = aes(y = fitted(mort_poissontrend_pop)/pop), colour = "blue", lwd=1.1) +
   scale_y_continuous(limits = c(0, NA)) +
@@ -457,13 +459,13 @@ For communication, it might be better to present the results in terms of number 
 
 ```{r, task-opt-3-regression-pois-mortrate-plot-tidy}
 
-mortz<- mortz %>%
+mort_ts<- mort_ts %>%
   mutate(
     mortality_rate = cases/pop*100000
   )
 
 
-ggplot(data = mortz, mapping = aes(x = date_index)) +
+ggplot(data = mort_ts, mapping = aes(x = date_index)) +
   geom_point(mapping = aes(y = mortality_rate), alpha = 0.5) +
   geom_line(mapping = aes(y = fitted(mort_poissontrend_pop)/pop*100000), colour = "blue", lwd=1.1) +
   scale_y_continuous(limits = c(0, NA)) +
@@ -488,7 +490,7 @@ Carry out the same analysis for men and women. Do you see differences between th
 Save mortagg to be used in the next practical.
 
 ```{r, task-save}
-# Save the mortagg and mortz objects.
-#save(mortagg, mortz, file = here("data", "mortagg_case_4.RData"))
+# Save the mortagg and mort_ts objects.
+# save(mortagg, mort_ts, file = here("data", "mort_ts.RData"))
 
 ```
