@@ -257,7 +257,7 @@ dis2_long <- dis2 %>%
       names_to = "month", 
       values_to = "case"
   ) %>%
-  mutate(month = as_factor(month)) %>%  # as_factor sets levels in the order they appear
+  mutate(month = factor(month, levels = month.abb)) %>%  # month.abb are the months in English in base R
   arrange(year, month)
 
 str(dis2_long)
