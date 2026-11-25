@@ -134,8 +134,13 @@ For that, first we need to state in the dataset when the vaccine was available. 
 We have also created sine and cosine variables so that we can model annual seasonality as before.
 
 ```{r, task-1-rota-vacc-interv}
+
+intervention_start <- yearweek("2013 W27")
+
 rota_ts <- rota_lg %>%
-  mutate(
+  group_by(cases_cat) %>%
+  mutate( 
+        
     vaccine = case_when(
       year >= 2014 ~ 1,
       year <= 2012 ~ 0,
@@ -143,9 +148,10 @@ rota_ts <- rota_lg %>%
       year == 2013 & week < 27 ~ 0,
       TRUE ~ NA_real_
       ),
+      time_after = cumsum(vaccine),
     sin52 = sin(2 * pi * index / 52),
     cos52 = cos(2 * pi * index / 52)
-  )
+  ) %>% ungroup()
 
 ## subset to total cases
 rota_ts <- rota_ts %>% 
@@ -352,7 +358,7 @@ ggplot(data = rota_ts) +
 To be able to comment on any change in trend after the introduction of the vaccine, we need to either include an interaction term in the model or include a time variable that starts at the introduction of the vaccine. Let's here use an interaction term.
 
 ```{r, task-1-rota-vacc-interv-model4}
-rotamodel_winteraction <- glm.nb(n ~ index * vaccine + sin52 + cos52,
+rotamodel_winteraction <- glm.nb(n ~ index + vaccine + time_after * vaccine + sin52 + cos52,
                                  data = rota_ts)
 
 summary_rotamodel_trendinteraction <- rotamodel_winteraction %>% 
@@ -377,7 +383,7 @@ Have there been any changes in seasonality, too?
 Note how we can use brackets to introduce interaction terms for several variables.
 
 ```{r, task-1-rota-vacc-interv-model5}
-rotamodel_full <- glm.nb(n ~ (sin52 + cos52 + index)*vaccine,
+rotamodel_full <- glm.nb(n ~ index + sin52 + cos52 + vaccine + time_after*vaccine + sin52*vaccine + cos52*vaccine,
                          data = rota_ts)
 
 
