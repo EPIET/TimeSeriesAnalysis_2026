@@ -4,7 +4,7 @@ project:
 
 book:
   title: "Time Series Analysis (TSA) Module for the ECDC EPIET & EUPHEM Program"
-  #author: "TSA 2025 Coordinating Group"
+  #author: "TSA 2026 Coordinating Group"
   page-navigation: true
   sidebar:                
     style: docked
@@ -13,13 +13,13 @@ book:
       text: "HOMEPAGE"
     - part: "PRACTICALS"
       chapters:
-        - "scripts/03-practical.qmd"
-        - "scripts/04-practical.qmd"
-        - "scripts/05-practical.qmd"
-        - "scripts/06-practical.qmd"
-        - "scripts/07-practical.qmd"
-        - "scripts/09-practical.qmd"
-        - "scripts/10-practical.qmd"
+        - "scripts/practical-dates.qmd"
+        - "scripts/practical-smoothing.qmd"
+        - "scripts/practical-periodicity.qmd"
+        - "scripts/practical-residuals.qmd"
+        - "scripts/practical-forecasting.qmd"
+        - "scripts/practical-2ts.qmd"
+        - "scripts/practical-intervention.qmd"
 
 format:
   html:
