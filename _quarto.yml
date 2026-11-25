@@ -14,12 +14,12 @@ book:
     - part: "PRACTICALS"
       chapters:
         - "scripts/practical-dates.qmd"
-        - "scripts/04-practical.qmd"
-        - "scripts/05-practical.qmd"
-        - "scripts/06-practical.qmd"
-        - "scripts/07-practical.qmd"
-        - "scripts/09-practical.qmd"
-        - "scripts/10-practical.qmd"
+        - "scripts/practical-smoothing.qmd"
+        - "scripts/practical-periodicity.qmd"
+        - "scripts/practical-residuals.qmd"
+        - "scripts/practical-forecasting.qmd"
+        - "scripts/practical-2ts.qmd"
+        - "scripts/practical-intervention.qmd"
 
 format:
   html:

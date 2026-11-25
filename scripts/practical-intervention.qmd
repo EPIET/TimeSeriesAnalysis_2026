@@ -1,7 +1,8 @@
-# Practical Session 10: Assessing the impact of interventions using surveillance data {.unnumbered}
+# Practical Session: Assessing the impact of interventions using surveillance data {.unnumbered}
 
 ### Source code {.unnumbered}
-```{r, knitr-global-chunk-10t, include=FALSE, cache=FALSE}
+
+```{r, knitr-global-chunk-t, include=FALSE, cache=FALSE}
 # Install pacman if not installed already, and activate it
 if (!require("pacman")) install.packages("pacman")
 
@@ -33,7 +34,7 @@ tsa_theme <- theme_bw() +
         )
 ```
 
-## Expected learning outcomes {#learn-10 .unnumbered}
+## Expected learning outcomes {#learn .unnumbered}
 
 By the end of the case study, participants will be able to:
 
@@ -43,23 +44,23 @@ By the end of the case study, participants will be able to:
 
 Rotavirus is a very common and potentially serious infection of the large bowel, mainly affecting young babies. Nearly every child will have at least one episode of rotavirus gastroenteritis by five years of age. People of any age can be affected, but the illness is more severe in young infants. The rotavirus immunisation programme was introduced in the UK on 1 July 2013 (week 27) with the objective of preventing a significant number of young infants from developing rotavirus infection. It may also provide some additional protection to the wider population through herd immunity. The aim of the rotavirus immunisation programme is to provide two doses of vaccine to infants from six weeks of age and before 24 weeks of age. The first dose of vaccine is offered at approximately eight weeks of age and the second dose at least four weeks after the first dose.
 
-High coverage was rapidly achieved for the first cohort of children offered rotavirus vaccine routinely in England and this has been maintained throughout the first fourteen months of the routine programme. Over this period, rotavirus vaccine coverage for children in the routine cohort averaged 93.3% for one dose and 88.3% for two doses.[^10-practical-1]
+High coverage was rapidly achieved for the first cohort of children offered rotavirus vaccine routinely in England and this has been maintained throughout the first fourteen months of the routine programme. Over this period, rotavirus vaccine coverage for children in the routine cohort averaged 93.3% for one dose and 88.3% for two doses.[^practical-1]
 
-[^10-practical-1]: Rotavirus infant immunisation programme 2014/15: Vaccine uptake report for England (Published: June 2015; PHE publications gateway number: 2015141)
+[^practical-1]: Rotavirus infant immunisation programme 2014/15: Vaccine uptake report for England (Published: June 2015; PHE publications gateway number: 2015141)
 
-## Task 10.1 {#task-10-1 .unnumbered}
+## Task 1 {#task-1 .unnumbered}
 
 You have been given a dataset for notified Rotavirus infections in England and Wales from week 23/2009 up to week 42/2018 (`rotavirus.csv`).
 
 Assess the impact of the introduction of the vaccination scheme in England and Wales for the whole population. Has the vaccine introduction had an effect on trend or periodicity patterns? Has the vaccine introduction affected the timing of the yearly outbreaks?
 
-## Help for Task 10.1 {#solution-10-1 .unnumbered}
+## Help for Task 1 {#solution-1 .unnumbered}
 
 Open the **rotavirus** dataset, which is a line list of all notified rotavirus infections in the UK between June 2009 and December 2014. Prepare your data and test if the introduction of the vaccine has had an impact on the notified number of cases of rotavirus infections in the UK. Has the trend changed? Has the periodicity changed?
 
 Prepare the **rotavirus.csv** for time-series analysis. You need to manipulate the dataset before being able to use it for time series analysis.
 
-```{r, task-10-1-import-dataset}
+```{r, task-1-import-dataset}
 rota <- import(here("data", "rotavirus.csv")) 
 view(rota)
 ```
@@ -70,7 +71,7 @@ In order to use ggplot2, remember that the data should be organised in a long fo
 
 The function `as_tsibble()` is what indicates to R that the data is a time series. **index** represents the time variable and **key** represents any categorical variable that splits the data into several time series (eg: location, age group...).
 
-```{r, task-10-1-rota}
+```{r, task-1-rota}
 ## convert to long format
 rota_lg <- rota %>% 
     pivot_longer(
@@ -105,7 +106,7 @@ rota_lg <- rota_lg %>%
 
 Plot the total number of cases by age group against time. Note that .
 
-```{r, task-10-1-rota-plot-tidy}
+```{r, task-1-rota-plot-tidy}
 ggplot(data = rota_lg) +
   geom_line (mapping = aes(x = year_week, y = n), alpha = 0.3) +
   facet_wrap(facets = vars(cases_cat), 
@@ -131,7 +132,7 @@ For that, first we need to state in the dataset when the vaccine was available. 
 
 We have also created sine and cosine variables so that we can model annual seasonality as before.
 
-```{r, task-10-1-rota-vacc-interv}
+```{r, task-1-rota-vacc-interv}
 rota_ts <- rota_lg %>%
   mutate(
     vaccine = case_when(
@@ -163,7 +164,7 @@ What we saw before:
 
 What we are adding now: - `style_pvalue` to format the pvalue (here with max 3 digits) - `modify_caption` to add a table title
 
-```{r, task-10-1-rota-vacc-interv-modelp}
+```{r, task-1-rota-vacc-interv-modelp}
 rotamodel_prevacc_p <- glm(n ~ index,
     data = rota_ts %>% filter(vaccine == 0),
     family = "poisson"
@@ -192,7 +193,7 @@ Overdispersion occurs when the mean of the data is not equal to its variance, vi
 
 Let's check for overdispersion. We can calculate an overdispersion parameter from a model as the ratio of the deviance and the residuals degrees of freedom. Also, proper statistical test are available, for example using the `AER` library and the `dispersiontest` function
 
-```{r, task-10-1-rota-vacc-interv-model_nb}
+```{r, task-1-rota-vacc-interv-model_nb}
 # Quick check for overdispersion: if check > 1 then use negative binomial
 deviance <- summary(rotamodel_prevacc_p)$deviance
 residual.df <- summary(rotamodel_prevacc_p)$df.residual
@@ -233,7 +234,7 @@ comparison_p_nb <- gtsummary::tbl_merge(
 comparison_p_nb
 ```
 
-The AIC comparison proves how the negative binomial model outperforms the Poisson model. 
+The AIC comparison proves how the negative binomial model outperforms the Poisson model.
 
 Let's use negative binomial models for the rest of the practical.
 
@@ -241,7 +242,7 @@ Let's use negative binomial models for the rest of the practical.
 
 We will fit a model for the post-vaccination period and compare it with the pre-vaccination period
 
-```{r, task-10-1-rota-vacc-interv-modelpost}
+```{r, task-1-rota-vacc-interv-modelpost}
 rotamodel_postvacc <- glm.nb(n ~ index,
                              data = rota_ts %>% filter(vaccine == 1))
 
@@ -269,7 +270,7 @@ We can see a difference in trends, but the two models cannot be directly compare
 
 Now we want to run one single model for both periods (before/after the introduction of the vaccine)
 
-```{r, task-10-1-rota-vacc-interv-modeltrend}
+```{r, task-1-rota-vacc-interv-modeltrend}
 rotamodel_trend <- glm.nb(n ~ index + vaccine,
                           data = rota_ts)
 
@@ -289,7 +290,7 @@ How would you interpret these results?
 
 We can plot the model against the raw data.
 
-```{r, task-10-1-rota-vacc-interv-modeltrend-plot-tidy}
+```{r, task-1-rota-vacc-interv-modeltrend-plot-tidy}
 rota_ts <- rota_ts %>% 
   mutate(fitted_trend = fitted(rotamodel_trend))
    
@@ -310,7 +311,7 @@ ggplot(data = rota_ts) +
 
 Now we want to run one single model for both periods (before/after the introduction of the vaccine), this time including seasonality.
 
-```{r, task-10-1-rota-vacc-interv-modelseason}
+```{r, task-1-rota-vacc-interv-modelseason}
 rotamodel_seasonality <- glm.nb(n ~ index + sin52 + cos52 + vaccine,
                                 data = rota_ts)
 
@@ -328,7 +329,7 @@ summary_rotamodel_seasonality
 
 We can plot the model against the raw data again.
 
-```{r, task-10-1-rota-vacc-interv-modelseason-plot-tidy}
+```{r, task-1-rota-vacc-interv-modelseason-plot-tidy}
 rota_ts <- rota_ts %>% 
   mutate(fitted_seasonality = fitted(rotamodel_seasonality))
  
@@ -349,7 +350,7 @@ ggplot(data = rota_ts) +
 
 To be able to comment on any change in trend after the introduction of the vaccine, we need to either include an interaction term in the model or include a time variable that starts at the introduction of the vaccine. Let's here use an interaction term.
 
-```{r, task-10-1-rota-vacc-interv-model4}
+```{r, task-1-rota-vacc-interv-model4}
 rotamodel_winteraction <- glm.nb(n ~ index * vaccine + sin52 + cos52,
                                  data = rota_ts)
 
@@ -366,7 +367,7 @@ summary_rotamodel_trendinteraction
 
 You can visualize the effect of the interaction term using `plot_model()` from the `sjPlot` library
 
-```{r, task-10-1-rota-vacc-interv-vizinteraction}
+```{r, task-1-rota-vacc-interv-vizinteraction}
 sjPlot::plot_model(rotamodel_winteraction, type ="int") 
 ```
 
@@ -374,7 +375,7 @@ Have there been any changes in seasonality, too?
 
 Note how we can use brackets to introduce interaction terms for several variables.
 
-```{r, task-10-1-rota-vacc-interv-model5}
+```{r, task-1-rota-vacc-interv-model5}
 rotamodel_full <- glm.nb(n ~ (sin52 + cos52 + index)*vaccine,
                          data = rota_ts)
 
@@ -394,7 +395,7 @@ sjPlot::plot_model(rotamodel_full, type ="int")
 
 Let's plot the full model estimate.
 
-```{r, task-10-1-rota-vacc-interv-model5-plot-tidy}
+```{r, task-1-rota-vacc-interv-model5-plot-tidy}
 rota_ts <- rota_ts %>% 
   mutate(fitted_full = fitted(rotamodel_full))
 
@@ -414,7 +415,7 @@ ggplot(data = rota_ts) +
 
 We can now compare all models next to each other:
 
-```{r, task-10-1-rota-vacc-interv-comparisonall}
+```{r, task-1-rota-vacc-interv-comparisonall}
 comparison_all <- gtsummary::tbl_merge(
     tbls = list(summary_rotamodel_seasonality,
                 summary_rotamodel_trendinteraction,  
@@ -429,6 +430,6 @@ comparison_all
 
 What about age? Can you see a difference in impact of vaccination depending on age category?
 
-## Task 10.2 (Optional) {#task-10-2 .unnumbered}
+## Task 2 (Optional) {#task-2 .unnumbered}
 
 Discuss with colleagues how you can determine the number of cases prevented as a result of the introduction of the vaccine (Hint: refer to Practical 7!).
