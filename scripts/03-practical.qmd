@@ -27,7 +27,9 @@ pacman::p_load(
   skimr,
   tsibble,
   ISOweek,
-  tidyverse
+  tidyverse,
+  janitor,
+  lubridate
 )
 ```
 

@@ -1,5 +1,6 @@
 # Practical Session 10: Assessing the impact of interventions using surveillance data {.unnumbered}
 
+### Source code {.unnumbered}
 ```{r, knitr-global-chunk-10t, include=FALSE, cache=FALSE}
 # Install pacman if not installed already, and activate it
 if (!require("pacman")) install.packages("pacman")
@@ -67,7 +68,7 @@ As the data in `rota` shows above, this dataset is structured in a "wide" format
 
 In order to use ggplot2, remember that the data should be organised in a long format.
 
-The function `as_tsibble()` is what indicates to R that the data is a time series. **index** represents the time variable and **key** represents any categorical variable that splits the data into several time series (eg: location, age group...). 
+The function `as_tsibble()` is what indicates to R that the data is a time series. **index** represents the time variable and **key** represents any categorical variable that splits the data into several time series (eg: location, age group...).
 
 ```{r, task-10-1-rota}
 ## convert to long format
@@ -121,7 +122,7 @@ ggplot(data = rota_lg) +
 
 ## Notes: 
 # You can get line breaks in labels using \n
-# You can also make all y-axes the same by using scales = "fixed_y"
+# You can also make all y-axes the same by using scales = "fixed"
 ```
 
 We want to see whether the number of cases changed after the introduction of the vaccine.
@@ -151,19 +152,16 @@ rota_ts <- rota_ts %>%
 
 Run first a separate model for the time before and after the introduction of the vaccine in England and Wales for all population. Can you detect any change in trend?
 
-Note in the code that we are building further on the `tbl_regression` function, adding options. 
+Note in the code that we are building further on the `tbl_regression` function, adding options.
 
 What we saw before:
-  
-- exponentiate = T to exponentiate coefficients 
-- style_number() to specify the number of digits in the estimates. 
-- `add_glance_table()` to add key parameters at the bottom of the table.
-- `table_merge()` to take several tables built with `tbl_regression` and put them in one big table. 
 
-What we are adding now:
-- `style_pvalue` to format the pvalue (here with max 3 digits)
-- `modify_caption` to add a table title
+-   exponentiate = T to exponentiate coefficients
+-   style_number() to specify the number of digits in the estimates.
+-   `add_glance_table()` to add key parameters at the bottom of the table.
+-   `table_merge()` to take several tables built with `tbl_regression` and put them in one big table.
 
+What we are adding now: - `style_pvalue` to format the pvalue (here with max 3 digits) - `modify_caption` to add a table title
 
 ```{r, task-10-1-rota-vacc-interv-modelp}
 rotamodel_prevacc_p <- glm(n ~ index,
@@ -235,7 +233,7 @@ comparison_p_nb <- gtsummary::tbl_merge(
 comparison_p_nb
 ```
 
-The AIC comparison proves how the negative binomial model outperforms the Poisson model. Also, realize how the index coefficient shifted from a tiny negative to a tiny positive overal trend, and how the p-value has greatly increased (but it still significant)
+The AIC comparison proves how the negative binomial model outperforms the Poisson model. 
 
 Let's use negative binomial models for the rest of the practical.
 

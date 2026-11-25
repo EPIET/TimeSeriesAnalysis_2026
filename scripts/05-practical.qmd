@@ -60,6 +60,8 @@ load(here("data", "mortagg2_case_4.RData"))
 
 *Explore the time series.*
 
+Step 1)
+
 The function decompose() decomposes the time series by applying moving averages to the series. 
 
 ```{r, task-5-1-explore}
@@ -110,7 +112,7 @@ estimate the seasonality component in the time series.*
 
 Seasonality and periodicity both refer to re-occurring patterns in the data. 
 
-Periodogram is called a graph that shows at what frequencies and time units 
+Periodogram is a graph that shows at what frequencies and time units 
 there is periodicity. R has a number of functions which produce a 
 periodogram. Here we will use the `periodogram` function from the `TSA` 
 package.  
