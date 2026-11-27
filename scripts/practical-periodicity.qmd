@@ -15,9 +15,11 @@ pacman::p_load(
   skimr,
   tsibble,
   TSA,
-  tidyverse,
   season,
-  lmtest
+  lmtest,
+  MASS,
+  gtsummary,
+  tidyverse
 )
 
 # Create tsa_theme from previous exercise to be used in ggplot.
@@ -39,15 +41,19 @@ tsa_theme <- theme_bw() +
 
 By the end of this session, participants should be able to:
 
--   assess the existence of periodicity in surveillance data
+-   identify and assess periodicity in surveillance data
 
--   fit and interpret models containing a trend and one or several sine and cosine curves on surveillance data to model both trend and periodicity
+-   fit and interpret regression models containing a trend and one or more pairs of sine and cosine terms 
+
+-   compare models with different sine and cosine terms
 
 ## Task 1 {#task-1 .unnumbered}
 
-Using mort_ts object (tibble), which is in `mortagg_ts.RData` (created in the Smoothing Practical), visually assess the 
+Using the mort_ts object (tibble), which is in `mort_ts.RData` (created in the Smoothing Practical), visually assess the 
 existence of any periodicity in the total number of deaths (cyclical 
-patterns). What do you think the period is, if any? Discuss your results with 
+patterns). 
+
+What do you think the period is, if any? Discuss your results with 
 your peers. 
 
 ## Help for Task 1 {#solution-1 .unnumbered}
@@ -62,11 +68,12 @@ load(here("data", "mort_ts.RData"))
 
 Step 1)
 
-The function decompose() decomposes the time series by applying moving averages to the series. 
+The function decompose() decomposes the time series by applying moving averages to the series. It separates the time series into trend, seasonal and random components. 
 
 ```{r, task-1-explore}
 
-# format the data to a time series object using ts(); this is needed when using decompose() directly after.
+# Convert the weekly data into a time series object
+# Set the frequency to 52 observations per year
 mort.ts  <- ts(mort_ts$cases, frequency=52, start=c(2010,1))
 
 plot(decompose(mort.ts))
@@ -80,40 +87,48 @@ Step 2)
 
 *Although we can see that there is a trend in the panels returned by 
 decompose(), we wish to inspect it ourselves. Apply moving averages 
-(practical 4) to determine if there is a trend. Which periodicity or 
-periodicities might be relevant.*
+as in the Smoothing and Trends practical to explore if there is a trend. Which periodicity or 
+periodicities might be relevant?*
 
 
 Step 3)
 
-*We will now estimate the trend, as was done in practical 4. Run the code in order to 
-have at hand the results and be able to compare later with other models.*
+*We will now estimate the trend, as was done in the Smoothing and Trends practical. Run the code in order to 
+have at hand the results and be able to compare later with other models. 
+
+This model will serve as a reference when assessing whether adding periodic terms improves the model fit.*
 
 ```{r, task-1-trend}
-mort_trend <- glm(cases ~ index, family = "poisson", data = mort_ts)
+# Fit a Poisson regression model with a trend
+mort_trend <- glm(cases ~ index, family = "poisson", 
+                  data = mort_ts)
 
 summary(mort_trend)
 ```
 
-```{r: task-1-IRR-gtsummary}
-mort_poissontrend %>% 
+```{r, task-1-count_ratio-gtsummary}
+mort_trend %>% 
   gtsummary::tbl_regression(
     exponentiate = TRUE,
-    estimate_fun = ~style_number(.x, digits = 4)
-  )
+    estimate_fun = ~gtsummary::style_number(.x, digits = 6)
+  ) %>%
+  gtsummary::modify_header(estimate = "**Count ratio**") %>%
+  gtsummary::modify_footnote(estimate = NA, abbreviation = TRUE)
 
 ```
+
+*What is the direction and magnitude of the estimated 
+weekly trend? Is it statistically significant?*
 
 Step 4:
 
 
-*As there seem to be some periodicity in the initial explorations, proceed to 
-estimate the seasonality component in the time series.* 
+*As there seems to be some periodicity in the initial explorations, proceed to 
+explore the periodic patterns in the time series.* 
 
 Seasonality and periodicity both refer to re-occurring patterns in the data. 
 
-Periodogram is a graph that shows at what frequencies and time units 
-there is periodicity. R has a number of functions which produce a 
+A periodogram is a graph that shows the strength of periodic patterns at different frequencies. R has a number of functions which produce a 
 periodogram. Here we will use the `periodogram` function from the `TSA` 
 package.  
 
@@ -125,10 +140,10 @@ The `periodogram` function plots the estimated periodogram for a given time
 series and also returns various useful outputs as a list, which we can use for 
 other analyses. 
 
-This type of plot is interpreted by identifying peaks. To obtain something 
+This type of plot is interpreted by identifying peaks. Higher peaks indicate stronger periodic patterns. To obtain something 
 that can be easily interpretable, we will extract the spectra and frequencies 
 from the output of the periodogram, and calculate the periods by taking the 
-reciprocal of the frequencies, and the plot the frequencies. 
+reciprocal of the frequencies, and then plot the periodogram against the periods.
 
 ```{r, task-1-periodogram-freq}
 mort_period_recip <-
@@ -137,16 +152,17 @@ mort_period_recip <-
         spec = mort_period$spec
     ) %>%
     arrange(desc(spec)) %>% 
-    mutate(reciprocal_freq = 1 / freq)  # here in weeks
+    mutate(reciprocal_freq = 1 / freq)  # period in weeks
 
 view(mort_period_recip)
+
+head(mort_period_recip, 10)
+
 ```
 
 The above lines of code extract two variables (`freq` and `spec`) from the 
-`mort_period_recip` object and place them in a `tibble` data.frame. Both 
-columns are ordered in descending order of the spectral variable. At the top 
-of the table we find the strongest spectral signal, as well as at what 
-periodicity does it appear (see reciprocal frequency). Observe that the 
+`mort_period` object and place them in a `tibble` data.frame. The rows are ordered in descending order of the spectral variable `spec`. At the top 
+of the table we find the strongest spectral signal, as well as its corresponding period (see reciprocal frequency). Observe that the 
 reciprocal frequency is in the same units as the data, in this case is in  
 weeks. 
 
@@ -157,7 +173,8 @@ ggplot(data = mort_period_recip, aes(x = reciprocal_freq, y = 2*spec)) +
     geom_line() +
     scale_x_continuous(limits = c(0, 160), breaks=seq(0, 160, 13)) +
     labs(x = "Period (weeks)", 
-         y = "Spectral density") +
+         y = "Spectral density",
+         title = "Periodogram of weekly deaths in Spain, 2010–2019") +
     tsa_theme
 
 ```
@@ -171,28 +188,25 @@ table of mort_period_recip).*
 
 ## Task 2 {#task-2 .unnumbered}
 
-*Fit a model on the data with a trend and then the relevant 
-period(s).*
+*Fit a model with a trend and add the relevant periodic terms.*
 
 *How many different periods are you including in your model? Test 
-statistically if the inclusion of more than one period contributes to the fit 
-of the model. Discuss your results.*
+statistically if the inclusion of more than one period improves the model fit. Discuss your results.*
 
 
-As the periodogram shows periodicity close to 52 weeks, we will use a sine 
-and cosine curves of a 52-week period. Periodicity with a period of one year 
+As the periodogram shows periodicity close to 52 weeks, we will use a pair of sine 
+and cosine terms with a period of 52 weeks. Periodicity with a period of one year
 is also referred to as seasonality. 
 
-Fit a poisson regression of `cases` that contains a trend as well as sine and 
-cosine predictor term for the periodicit identified. In order to have an 
+Fit a Poisson regression of `cases` that contains a trend as well as a pair of sine and 
+cosine terms for the identified period. In order to have an 
 appropriate phase in your model (you do not have to worry about identifying 
 it; this will happen automatically), you need to use both a sine and a 
-cosine curve with the same period. The sum of these two curves gives the 
-periodicity for the specified period and the phase best describing our data. 
+cosine curve with the same period. By including both terms, the model can estimate the amplitude (strength of the seasonal variation) and phase (timing of the seasonal peak).
 
 
 ```{r, task-2-trend-sin52-cos52}
-# calculate the sine and cosine terms.
+# Calculate the sine and cosine terms for a 52-week period
 mort_ts <- mort_ts %>%
   mutate(cos52 = cos(2 * pi * index / 52),
          sin52 = sin(2 * pi * index / 52))
@@ -202,56 +216,65 @@ mort_trendsin52cos52 <- glm(cases ~ index + sin52 + cos52, family = "poisson", d
 summary(mort_trendsin52cos52)
 
 
+colors <- c("Observed" = "black", "Fitted" = "green")
+
 ggplot(data = mort_ts, aes(x = date_index)) +
-    geom_point(aes(y = cases), alpha = 0.4) +
+    geom_point(aes(y = cases, colour = "Observed"), alpha = 0.4) +
     geom_line(
-        mapping = aes(y = fitted(mort_trendsin52cos52)),
-        colour = "green",
-        lwd=1.5
+        mapping = aes(y = fitted(mort_trendsin52cos52),
+                      colour = "Fitted"),
+        linewidth = 1.5
     ) +
     scale_y_continuous(limits = c(0, NA)) +
-  scale_x_yearweek(date_labels = "%Y-%W", 
-                   date_breaks = "1 year") +
-    labs(x = "Year week", 
+    scale_x_yearweek(date_labels = "%Y-%W", 
+                     date_breaks = "1 year") +
+    labs(x = "Year-week", 
          y = "Number of deaths", 
-         title = "Spain: number of deaths per week with fit from trend+sin52+cos52") +
+         title = "Observed weekly deaths and fitted model with trend and 52-week periodicity, Spain, 2010–2019") +
+    scale_color_manual(values = colors, name = "") +
     tsa_theme
 
 ```
 
 *How does the fit look visually?*
 
-*Plot the results of the model with only trend and the newer model with trend 
-and periodicity 52 weeks. Compare statistically and comment on the results.* 
+*Plot the results of the model with only trend and the model with trend 
+and 52-week periodicity. Compare the models visually and statistically and comment on the results.* 
 
 
 ```{r, task-2-trend-sin52-cos52-onlytrend}
+colors <- c("Observed" = "black",
+            "Trend only" = "blue",
+            "Trend + 52-week periodicity" = "green")
+
 ggplot(data = mort_ts, aes(x = date_index)) +
-    geom_point(aes(y = cases), alpha = 0.4) +
+    geom_point(aes(y = cases, colour = "Observed"), 
+               alpha = 0.4) +
     geom_line(
-        mapping = aes(y = fitted(mort_trend)),
-        colour = "blue",
-        lwd=1.5
+        mapping = aes(y = fitted(mort_trend),
+                      colour = "Trend only"),
+        linewidth = 1.5
     ) +
     geom_line(
-        mapping = aes(y = fitted(mort_trendsin52cos52)),
-        colour = "green",
-        lwd=1.5
+        mapping = aes(y = fitted(mort_trendsin52cos52),
+                      colour = "Trend + 52-week periodicity"),
+        linewidth = 1.5
     ) +
     scale_y_continuous(limits = c(0, NA)) +
-  scale_x_yearweek(date_labels = "%Y-%W", 
-                   date_breaks = "1 year") +
-    labs(x = "Year week", 
+    scale_x_yearweek(date_labels = "%Y-%W", 
+                     date_breaks = "1 year") +
+    labs(x = "Year-week", 
          y = "Number of deaths", 
-         title = "Spain: number of deaths per week with fit from only trend and trend+sin52+cos52") +
+         title = "Observed weekly deaths and fitted models with and without 52-week periodicity, Spain, 2010–2019") +
+    scale_color_manual(values = colors, name = "") +
     tsa_theme
 
 ```
 
 To compare two nested models, we make use of the likelihood ratio test (LRT). 
-These models are nested since they contain the same data, and the second 
-model has the same variables as the first plus some additional ones. 
+These models are nested since the second model has the same variables as the first plus some additional ones. 
 
+For the comparison to be valid, both models must be fitted to the same data. 
 
 ```{r, task-2-sin52-cos52-trend-lrt}
 # likelihood ratio test: compares two nested models
@@ -262,18 +285,21 @@ lrtest(mort_trend, mort_trendsin52cos52)
 ``` 
 
 
-A significant p-value from LRT indicates that the extra variable(s) result in 
-a better fit of the bigger model. In this cases, a better fit to the data is 
+A statistically significant result from the LRT, assuming 
+the model assumptions hold,  indicates that the extra variable(s) result in 
+a better fit of the more complex model. In this case, a better fit to the data is 
 obtained when we include the seasonality at 52 weeks. 
 
 
 
-To fit the model better, we could try to add more sine/cosine curves, of a 
-period corresponding to the second strongest peak in the model (26 weeks). 
+To improve the model fit, we could try to add more sine/cosine terms, of a 
+period corresponding to another prominent peak in the periodogram (approximately 26 weeks). 
 This will allow for cycles (periods) of not only 52, but also 26 weeks, 
-should we think there might be half-yearly cycles which are relevant. In this 
-case, for instance, there may be elevated mortality in winter, but also in 
-summer during heatwaves. 
+should we think there might be half-yearly cycles which are relevant. 
+
+Adding a 26-week period also allows the model to capture a more complex seasonal pattern.
+
+In this case, for instance, there may be elevated mortality in winter, but also in summer during heatwaves. 
 
 Generate sine and cosine terms with a period of 26 weeks and name them 
 `sin26` and `cos26`. Add these two new terms to the previous model. 
@@ -295,24 +321,28 @@ summary(mort_trendsin2cos2)
 ```
 
 ```{r, task-2-trend-sin2-cos2-plot-tidy}
+colors <- c("Observed" = "black", "Fitted" = "green")
+
 ggplot(data = mort_period, aes(x = date_index)) +
-    geom_point(aes(y = cases), alpha = 0.4) +
+    geom_point(aes(y = cases, colour = "Observed"), 
+               alpha = 0.4) +
     geom_line(
-        mapping = aes(y = fitted(mort_trendsin2cos2)),
-        colour = "green",
-        lwd=1.5
+        mapping = aes(y = fitted(mort_trendsin2cos2),
+                      colour = "Fitted"),
+        linewidth = 1.5
     ) +
     scale_y_continuous(limits = c(0, NA)) +
-  scale_x_yearweek(date_labels = "%Y-%W", 
-                   date_breaks = "1 year") +
+    scale_x_yearweek(date_labels = "%Y-%W", 
+                     date_breaks = "1 year") +
     labs(x = "Year-week", 
          y = "Number of deaths", 
-         title = "Spain: number of deaths per week with fit from trend, sin52, cos52, sin26, cos26.") +
+         title = "Observed weekly deaths and fitted model with trend and 52- and 26-week periodicities, Spain, 2010–2019") +
+    scale_color_manual(values = colors, name = "") +
     tsa_theme
     
 ```
 
-*Test if the model with two periodicities fit better than the model with one.*
+*Test if the model with two periodicities fits better than the model with one.*
 
 ```{r, task-2-sin2-cos2-trend-lrt}
 # likelihood ratio test: compares two nested models
@@ -328,9 +358,10 @@ contribution to your model?*
 
 ## Task 3 {#task-3 .unnumbered}
 
-*Fit the final model as a negative binomial instead. Plot the Poisson and the negbin. Which do you think fits best? Compare AIC for both models.*
+*Fit the final model using negative binomial regression. Plot the fitted values from the Poisson and negative binomial models. Which do you think fits best? Compare AIC for both models.*
 
-The code for a negbin glm is very simular as the glm(). It is glm.nb() found in the MASS library.
+The code for fitting a negative binomial regression 
+model is very similar to that for Poisson regression. We use the `glm.nb()` function from the `MASS` package.
 
 ```{r, task-3-sin2-cos2-trend_nbin}
 
@@ -340,46 +371,98 @@ mort_trendsin2cos2_nbin <- glm.nb(cases ~ index + sin52 + cos52 + sin26 + cos26,
 summary(mort_trendsin2cos2_nbin)
 
 aic_nbin <- AIC(mort_trendsin2cos2_nbin)
+aic_nbin
 
 aic_poi  <- AIC(mort_trendsin2cos2)
+aic_poi
 
 ```
 
-When fitting a negbin, see to it that the theta estimate or its standard 
-error do not have exaggerated values; that might be a sign that the model did 
-not converge and therefore negbin is not a model for the data. 
+When fitting a negative binomial model an additional 
+parameter, theta is estimated to account for overdispersion. Smaller values of theta indicate greater overdispersion.
+As theta increases, the negative binomial distribution 
+approaches the Poisson distribution.
 
-AIC is the Akaike information criteria, a summary that can be used to compare 
-different models, even when they are different types or are not nested. The 
-lower the value of AIC, the better the model. 
+AIC is the Akaike information criterion, a summary that can be used to compare 
+different models, even when they are different types or are not nested. 
 
-*Which model has best fit?*
+Models should be fitted to the same outcome and observations.
 
-*Compare also the trends (as IRR), and the coefficients of the different seasonal components.*
+The model with the lowest AIC is generally preferred.
 
-```{r, task-3-comapre_estimates}
+*Which model is preferred according to AIC?*
 
-# estimates nbin model; it is a matrix
-exp.nbin <- exp(confint(mort_trendsin2cos2_nbin))
+Plot the fitted values from both models and compare them visually.
 
-# width of 95% confidence interval
-exp.nbin <-  cbind(exp.nbin, exp.nbin[,'97.5 %'] - exp.nbin[,'2.5 %'])
-                
-                
-# estimates in poisson model; it is a matrix
-exp.poi <- exp(confint(mort_trendsin2cos2))
+```{r, task-3-poisson-nbin-plot}
 
-# width of 95% confidence interval
-exp.poi <-  cbind(exp.poi, exp.poi[,'97.5 %'] - exp.poi[,'2.5 %'])
+colors <- c("Observed" = "black",
+            "Poisson" = "green",
+            "Negative binomial" = "blue")
+
+ggplot(data = mort_period, aes(x = date_index)) +
+    geom_point(aes(y = cases, colour = "Observed"), 
+               alpha = 0.4) +
+    geom_line(
+        aes(y = fitted(mort_trendsin2cos2), 
+            colour = "Poisson"),
+        linewidth = 1.5
+    ) +
+    geom_line(
+        aes(y = fitted(mort_trendsin2cos2_nbin), 
+            colour = "Negative binomial"),
+        linewidth = 1.5,
+        linetype = "dashed"
+    ) +
+    scale_y_continuous(limits = c(0, NA)) +
+    scale_x_yearweek(date_labels = "%Y-%W",
+                     date_breaks = "1 year") +
+    labs(x = "Year-week",
+         y = "Number of deaths",
+         title = "Observed weekly deaths and fitted Poisson and negative binomial models, Spain, 2010–2019") +
+    scale_color_manual(values = colors, name = "") +
+    tsa_theme
 
 ```
-*Are the estimates and confidence intervals similar between the fitted poisson and the fitted negbin models?*
+
+*Are there noticeable differences between the fitted values 
+from the two models?*
+
+*Compare also the trends (as count ratios) and the coefficients of the different seasonal components.*
+
+```{r, task-3-compare_estimates}
+
+# Estimates and 95% confidence intervals: negative binomial model
+exp.nbin <- exp(cbind(
+    Estimate = coef(mort_trendsin2cos2_nbin),
+    confint(mort_trendsin2cos2_nbin)
+))
+
+# Width of the 95% confidence interval
+exp.nbin <- cbind(exp.nbin,
+    CI_width = exp.nbin[, "97.5 %"] - exp.nbin[, "2.5 %"])
+exp.nbin
+
+# Estimates and 95% confidence intervals: Poisson model
+exp.poi <- exp(cbind(
+    Estimate = coef(mort_trendsin2cos2),
+    confint(mort_trendsin2cos2)
+))
+
+# Width of the 95% confidence interval
+exp.poi <- cbind(exp.poi,
+    CI_width = exp.poi[, "97.5 %"] - exp.poi[, "2.5 %"])
+exp.poi
+
+```
+
+*Are the estimates and confidence intervals similar between the fitted Poisson and the negative binomial models?*
 
 
 ## Task 4 (Optional) {#task-4 .unnumbered}
 
 *Carry out the same analysis for men and women. Do you see differences between 
-the two? Where?* 
+the two? Are there differences in the trend or seasonal patterns?* 
 
 
 ## Save
