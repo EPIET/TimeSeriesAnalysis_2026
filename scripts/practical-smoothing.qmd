@@ -35,9 +35,9 @@ tsa_theme <- theme_bw() +
 
 ## Mortality Surveillance data in Spain {#title-1 .unnumbered}
 
-The number of deaths in a country can be used as a surveillance indicator. An example of such an application is EuroMOMO, which monitors number of fatalities in European countries on a weekly basis (https://www.euromomo.eu/). The weekly time series on the number of deathls are routinely used to follow seasonal infections, for example influenza and covid 19 during the winter, but also heatwaves in the summer.
+The number of deaths in a country can be used as a surveillance indicator. An example of such an application is EuroMOMO, which monitors number of deaths in European countries on a weekly basis (https://www.euromomo.eu/). The weekly time series on the number of deaths are routinely used to follow seasonal infections, for example influenza and covid 19 during the winter, but also heatwaves in the summer.
 
-In case studies 4 to 7, we will analyse the number of deaths retrieved from the Spanish national statistical institute (INE) (https://ine.es/). Each case study will build up from the analysis conducted in the previous case study. The data contains the number of fatalities per week for the entire country, from 2010 to 2019, and includes variables on year, week, total number of deaths (`cases`), and total population; the same data is also included for men and women.
+In the following practical sessions, we will analyse the number of deaths retrieved from the Spanish National Statistics Institute (INE) (https://ine.es/). Each case study will build up from the analysis conducted in the previous case study. The data contains the number of deaths per week for the entire country, from 2010 to 2019, and includes variables on year, week, total number of deaths (`cases`), and total population; the same data is also included for men and women.
 
 ## Expected learning outcomes {#learn .unnumbered}
 
@@ -45,9 +45,9 @@ By the end of the session, participants should be able to:
 
 -   Describe, test and fit a trend in surveillance data (simple smoothing and regression);
 
--   Assess and interpret the significance of trend in surveillance data.
+-   Assess and interpret direction, magnitude and statistical significance of the trend in surveillance data.
 
-Save any changes to a new dataset named \``mortagg`.
+Keep the original dataset. Save any changes to a new dataset named \``mortagg`.
 
 ## Task 1 {#task-1 .unnumbered}
 
@@ -57,9 +57,9 @@ Discuss your results with your peers.
 
 ### Moving average and direct statistical modelling of trends {#task-1-1a .unnumbered}
 
-Moving averages are simple methods to visualise the general trend of a series after removing some of the random day-to-day variation by smoothing the data. This allows you to browse your data for periodicity and observe the general trend. In other words, smoothing the data may remove “noise” from your time series and can facilitate visual interpretation.
+Moving averages are simple methods to visualise the general trend of a series after removing some of the random week-to-week variation by smoothing the data. This allows you to browse your data for periodicity and observe the general trend. In other words, smoothing the data may remove “noise” from your time series and can facilitate visual interpretation.
 
-Moving averages model a time series by calculating the numerical mean of the values adjacent to it. It is calculated for each observation, moving along the time axis: e.g. at each time $t$ and for a window of 5 time units, one way of calculating the moving average is by using the observations at $t-2$, $t-1$, $t$, $t+1$ and $t+2$.
+Moving averages smooth a time series by calculating the numerical mean of the values adjacent to it. It is calculated for each observation, moving along the time axis: e.g. at each time $t$ and for a window of 5 time units, one way of calculating the moving average is by using the observations at $t-2$, $t-1$, $t$, $t+1$ and $t+2$.
 
 ## Help for Task 1 {#solution-1 .unnumbered .unnumbered}
 
@@ -83,6 +83,8 @@ skimr::skim(mortagg)
 
 Create a time series object with `tsibble`, using the total case counts and plot the time series.
 
+The fill_gaps() function makes missing weeks explicit. Before analysing the time series, check whether any weekly mortality counts are missing. Missing observations should not be interpreted as zero deaths.
+
 ```{r, task-1-mort-aggr-week-plot-tidy}
 mort_ts <-
   mortagg %>%
@@ -91,11 +93,16 @@ mort_ts <-
   as_tsibble(index = date_index) %>%
   fill_gaps()
 
+# Check the number of weekly observations
+nrow(mort_ts)
+
+# Check for missing mortality counts
+sum(is.na(mort_ts$cases))
 
 ggplot(data = mort_ts) +
   geom_line(mapping = aes(x = date_index, y = cases)) +
   scale_x_yearweek(date_labels = "%Y-%W", date_breaks = "1 year") +
-  labs(x = "Year Week", y = "Number of Deaths", title = "Spain: number of deaths per week") +
+  labs(x = "Year-week", y = "Number of deaths", title = "Weekly number of deaths, Spain, 2010–2019") +
   tsa_theme
 ```
 
@@ -105,7 +112,7 @@ ggplot(data = mort_ts) +
   geom_line(mapping = aes(x = date_index, y = cases)) +
   scale_x_yearweek(date_labels = "%Y-%W", date_breaks = "1 year") +
   scale_y_continuous(limits = c(0, NA)) +
-  labs(x = "Date", y = "Number of Deaths", title = "Spain: number of deaths per week") +
+  labs(x = "Year-week", y = "Number of deaths", title = "Weekly number of deaths, Spain, 2010–2019") +
   tsa_theme
 ```
 
@@ -122,9 +129,11 @@ ggplot(data = mort_ts, aes(x = date_index)) +
   geom_line(mapping = aes(y = cases_f, colour = "cases_f"), lwd=1) + 
   scale_x_yearweek(date_labels = "%Y-%W", date_breaks = "1 year") +
   scale_y_continuous(limits = c(0, NA)) +
-  labs(x = "Week", y = "Number of Deaths", title = "Spain: number of deaths per week and by sex", 
+  labs(x = "Year-week", y = "Number of deaths", title = "Weekly number of deaths by sex, Spain, 2010–2019", 
          colour = "Legend") +
-  scale_color_manual(values = colors, name="", labels = c("Men", "Women")) +
+  scale_color_manual(values = colors, name="", 
+                     breaks = c("cases_m", "cases_f"),
+                     labels = c("Men", "Women")) +
   tsa_theme
 ```
 
@@ -134,7 +143,7 @@ Assess visually the existence of a long-term trend and periodicity in the `morta
 
 Consider: where would you centre the smoothing window and why? What is the effect of using different smoothing window centring options? Test!
 
-Of all the methods applied here (moving average with different windows, loess with different spans), which one do you think is the best for eliminating seasonality? Where would you centre the smoothing window and why? What would happen if you used an even greater window? Test!
+Of all the methods applied here (moving average with different windows, LOESS with different spans), which one do you think is the best for reducing seasonality? Where would you centre the smoothing window and why? What would happen if you used a larger window or span? Test!
 
 ## Help for Task 2 {#solution-2 .unnumbered}
 
@@ -142,11 +151,11 @@ According to the `slider` package description, `slider` is a package for rolling
 
 For each record, create the following various types of moving average.
 
--   `MA5a`: the 5-week moving average, centered on cases.
+-   `MA5a`: the 5-week moving average, centred on current week.
 
--   `MA5b`: the 5-week moving average of cases and the 4 previous weeks.
+-   `MA5b`: the 5-week moving average of current week and the 4 previous weeks.
 
--   `MA5c`: the 5-week moving average of the 5 previous weeks.
+-   `MA5c`: the 5-week moving average of the 5 previous weeks, excluding the current week.
 
 Compare results.
 
@@ -192,9 +201,9 @@ The `.i` argument defines the vector with the time variable that will be used fo
 
 The `.f` argument indicates the function that will be used to perform the intended computations. In this case, an arithmetic mean computation is carried out by using the `mean` function. The `na.rm = TRUE` is a varying argument included as a `...` argument of `slide_index_dbl`. (Run the expression `args("slide_index_dbl")` and take notice on the position/sequence of this function's arguments).
 
-The `.before` argument defines the number of observations before the central time point of a given time window to use in the rolling window computation. In the example above for a 5 time points centered moving average, in `MA5a`, 2 observations are used before the central point, and 2 observations are used after it, using the `.after` argument.
+The `.before` argument defines the time units before the current time point of a given time window to use in the rolling window computation. In the example above for a centred five-week moving average, in `MA5a`, 2 observations are used before the current week, and 2 observations are used after it, using the `.after` argument.
 
-The `complete` argument indicates where the computation should be carried in rolling windows that have complete observations.
+The `.complete` argument ensures that only complete time windows are used. Missing values within these windows are excluded when using `na.rm = TRUE`.
 
 We applied a more complicated function to compute `MA5c`, taking a backwards moving window of six values but omitting the latest value (current time point) from the calculation of the average.
 
@@ -212,22 +221,22 @@ ggplot(data = mort_ts_ma, mapping = aes(x = date_index)) +
   scale_x_yearweek(date_labels = "%Y-%W", 
                    date_breaks = "1 year") +
   scale_y_continuous(limits = c(0, NA)) +
-  labs(x = "Week", 
+  labs(x = "Year-week", 
        y = "Number of deaths", 
-       title = "Spain: number of deaths - moving averages",
+       title = "Weekly deaths and five-week moving averages, Spain, 2010–2019",
        colour="Legend") +
   scale_color_manual(values = colors, name="") +
   tsa_theme
 
 ```
 
-We observe that the calculation is similar across these various methods, but is not aligned to the series in the same way. `MA5a` is centered in the middle of the period used to calculate the mean. `MA5b` is placed at the end of the period. `MA5c` is placed one step forward (smoothing functions can be used for forecasting the following point). The "models" provided are similar for a 5-week window, but the *lag* is different.
+We observe that the calculation is similar across these various methods, but is not aligned to the series in the same way. `MA5a` is centered in the middle of the period used to calculate the mean. `MA5b` is placed at the end of the period. `MA5c` is placed one step forward (smoothing functions can be used for forecasting the following point). The three moving averages use windows of the same length but differ in their alignment with the original time series.
 
 Moving average is only one way of smoothing. Other ways of smoothing the data to get a general idea of the trend include, for example, LOESS (locally estimated scatterplot smoothing) smoothing, where the contribution of surrounding observations is weighted, i.e. it is not the arithmetical mean for each set (window) of observations.
 
 Why do you think we have chosen these windows for the moving average?
 
-To better observe the general trend, we need to find the length of the moving average that will erase the seasonal component. Various lengths can be tried; here we have used 25, 51 and 103.
+To better observe the general trend, we need to find the length of the moving average that will reduce seasonal fluctuations. Various lengths can be tried; here we have used 25, 51 and 103 weeks, corresponding approximately to six months, one year and two years. Odd window lengths allow the moving average to be centred on a single week.
 
 ```{r, task-2-mort-MAx-longer-length}
 mort_ts_ma2 <-
@@ -274,7 +283,7 @@ You can use `View` to examine the first rows of `mort_ts_ma2.`
 View(mort_ts_ma2)
 ```
 
-Plot the times series with the different moving averages.
+Plot the time series with the different moving averages.
 
 ```{r, task-2-mort-MAx-longer-length-plots-tidy}
 ## wide format dataset ---
@@ -291,7 +300,7 @@ ggplot(data = mort_ts_ma2, mapping = aes(x = date_index)) +
   scale_y_continuous(limits = c(0, NA)) +
   labs(x = "Year-Week", 
        y = "Number of deaths", 
-       title = "Spain: number of deaths - moving averages with 26, 51 and 103-week windows",
+       title = "Weekly deaths and moving averages (25, 51 and 103 weeks), Spain, 2010–2019",
        colour="Legend") +
   scale_color_manual(values = colors, name="", breaks = names(colors)[c(1,2,3,4)]) +
   tsa_theme
@@ -299,55 +308,61 @@ ggplot(data = mort_ts_ma2, mapping = aes(x = date_index)) +
 
 Moving average is only one way of smoothing. Other ways of smoothing the data to get a general idea of the trend include, for example, LOESS (locally estimated scatterplot smoothing) smoothing, where the contribution of surrounding observations is weighted, i.e. it is not the arithmetical mean for each set (window) of observations.
 
-The `geom_smooth` provides a smoothing curve using a LOESS method.
+The `geom_smooth` function can be used to fit a smooth curve using the LOESS method.
 
 ```{r task-2-mort-MAx-scatterplot-tidy, message=FALSE, warning=FALSE}
 ggplot(mort_ts, mapping = aes(x = date_index, y = cases)) +
   geom_point(alpha = 0.5) +
-  geom_smooth(se = TRUE) +
+  geom_smooth(method = "loess", span = 0.75, se = TRUE) +
   scale_x_yearweek(date_labels = "%Y-%W", 
                    date_breaks = "1 year") +
   scale_y_continuous(limits = c(0, NA)) +
-  labs(x = "Date", 
-       y = "Number of Deaths", 
-       title = "Loess smoothing") +
+  labs(x = "Year-week", 
+       y = "Number of deaths", 
+       title = "Weekly deaths and LOESS smoothing (span = 0.75), Spain, 2010–2019") +
   tsa_theme
 ```
 
-We can change the degree of smoothing by adding a `span` option. The `span` controls the amount of smoothing for the default loess smoother; smaller numbers produce wigglier lines, and larger numbers produce smoother lines.
+We can change the degree of smoothing by adding a `span` option. The `span` controls the amount of smoothing for the default loess smoother; smaller numbers produce more flexible lines, and larger numbers produce smoother lines. The shaded area represents the approximate 95% confidence interval around the estimated smooth curve, not a prediction interval for individual observations. This interval should be interpreted with caution.
 
 ```{r, task-2-mort-MAx-scatterplot-span-tidy2}
 ggplot(data = mort_ts, mapping = aes(x = date_index, y = cases)) +
   geom_point(alpha = 0.5) +
-  geom_smooth(se = TRUE, span = 0.1) +
+  geom_smooth(method = "loess", span = 0.1, se = TRUE) +
   scale_x_yearweek(date_labels = "%Y-%W", date_breaks = "1 year") +
   scale_y_continuous(limits = c(0, NA)) +
-  labs(x = "Date", y = "Number of Deaths", title = "Loess smoothing (span = 0.1)") +
+  labs(x = "Year-week",
+     y = "Number of deaths",
+     title = "Weekly deaths and LOESS smoothing (span = 0.1), Spain, 2010–2019") +
   tsa_theme
 ```
 
-In ggplot(), we can also use `stat_smooth`, which provides a smoothing curve using a LOESS method, and were wee can change the degree of smoothing by adding a `span` option. The `span` controls the amount of smoothing for the default loess smoother; smaller numbers produce wigglier lines, and larger numbers produce smoother lines.
+In `ggplot()`, we can also use `stat_smooth`, to obtain the LOESS smoothing curve.
 
 ```{r, task-2-mort-MAx-scatterplot-span-tidy}
 ggplot(data = mort_ts, mapping = aes(x = date_index, y = cases)) +
   geom_point(alpha = 0.5) +
-  stat_smooth(se = TRUE, span=0.1) +
+  stat_smooth(method = "loess",  span = 0.1, se = TRUE) +
   scale_x_yearweek(date_labels = "%Y-%W", date_breaks = "1 year") +
   scale_y_continuous(limits = c(0, NA)) +
-  labs(x = "Year-Week", y = "Number of deaths", 
-    title = "Spain: number of deaths - loess smoothing (span = 0.1)") +
+  labs(x = "Year-week", y = "Number of deaths", 
+    title = "Weekly deaths and LOESS smoothing (span = 0.1), Spain, 2010–2019") +
   tsa_theme
 ```
 
-Test different values of span. Comment on the lines provided by the different smoothing windows. Which one do you think is the best for eliminating seasonality? What would happen if you used an even greater window?
+Test different values of span. Comment on the lines provided by the different smoothing methods. Which one do you think is the best for reducing seasonal fluctuations? What would happen if you used a larger window or LOESS span?
 
 ## Task 3 {#task-3 .unnumbered .unnumbered}
 
-Assess statistically whether the registered number of deaths has been stable in the years available in your dataset.
+Assess statistically whether the registered number of deaths has been stable in the years available in your dataset. Estimate the direction and magnitude of the trend and assess its statistical significance.
 
 ## Help for Task 3 {#solution-3 .unnumbered}
 
-Using regression methods against the time variable is a simple and familiar way to look at trends and test the slope. The kind of regression and interpretation you will use depends on the nature of your dependent variable (outcome), in this case, the number (count) of registered deaths. Time will be represented by a variable that simply enumerates the observations; in other words, time is a variable with values from 1 (the first observation in time; here week 1, 2010) to `n` (the last observation in time; here week 52, 2019).
+Using regression methods against the time variable is a simple and familiar way to look at trends and test the slope. The kind of regression and interpretation you will use depends on the nature of your dependent variable (outcome), in this case, the number (count) of registered deaths.
+
+Since the outcome is count data, we will start by fitting a Poisson regression model with a log link.
+
+Time will be represented by a variable that simply enumerates the observations; in other words, time is a variable with values from 1 (the first observation in time; here week 1, 2010) to `n` (the last observation in time; here week 52, 2019).
 
 ```{r, task-3-regression-poi}
 mort_ts <-
@@ -367,13 +382,26 @@ Check model results.
 summary(mort_poissontrend)
 ```
 
-The `glm` function fits a linear regression model to the log of the weekly number of deaths. You can use the `names` function to see the various components of the output of the `glm` function, as above. As mentioned in the previous session, the `str` function is also often useful for looking at the "structure" of the output of an R function. Summary provides a quick function for checking the results.
+The `glm()` function fits a Poisson regression model with a log link, modelling the logarithm of the expected weekly number of deaths as a linear function of time.
 
-Variables in R models are specified using notation along the lines of `response_variable ~ explanatory_variable_1 + explanatory_variable_2` etc. Check the material from the MVA module. A more detailed explanation of how to build model formulas in R can also be found in the *Details* section of the help page of the `formula` function: `?stats::formula`.
+$$
+\log(\mu_t) = \beta_0 + \beta_1 t
+$$
 
-`summary`, when given the results of fitting a regression model, will provide a summary of the fitted parameters (coefficients); in this case the parameter of `index` is the trend.
+where:
 
-Identify and interpret the intercept and the trend. In a Poisson model on the log(y), the coefficient needs to be exponentiated in order to interpret it for the output y (that is, the original y without the log).
+-   $\mu_t$ is the expected number of deaths in week $t$;
+-   $\beta_0$ is the intercept;
+-   $\beta_1$ is the trend coefficient;
+-   $t$ is the weekly time index.
+
+You can use the `names()` function to see the various components of the output of the `glm()` function, as above. As mentioned in the previous session, the `str()` function is also often useful for looking at the "structure" of the output of an R function. Summary provides a quick function for checking the results.
+
+Variables in R models are specified using notation along the lines of `response_variable ~ explanatory_variable_1 + explanatory_variable_2` etc. Check the material from the MVA module. 
+
+The `summary()` function provides the estimated regression coefficients, standard errors and p-values. The coefficient of `index` represents the trend on the log scale.
+
+Identify and interpret the intercept and the trend. In a Poisson regression model with a log link, the coefficients need to be exponentiated to interpret them on the original scale.
 
 Plot the fitted values against the observed ones.
 
@@ -385,29 +413,46 @@ ggplot(data = mort_ts, mapping = aes(x = date_index)) +
   geom_line(mapping = aes(y = fitted(mort_poissontrend), colour = "fitted"), linewidth=1.1) +
   scale_y_continuous(limits = c(0, NA)) +
   scale_x_yearweek(date_labels = "%Y-%W", date_breaks = "1 year") +
-  labs(x = "Year-Week", y = "Number of deaths", title = "Spain: number of deaths per week with fitted trend") +
+  labs(x = "Year-week", y = "Number of deaths", title = "Observed weekly deaths and fitted Poisson trend, Spain, 2010–2019") +
   scale_color_manual(values = colors, name="") +
   tsa_theme
 ```
 
-The trend as incidence rate ratio (IRR) provides the average relative change in the number of deaths from one week to the next.
+The count ratio represents the relative change in the expected number of deaths from one week to the next.
 
-```{r, task-opt-3-IRR}
+```{r, task-opt-3-count_ratio}
 
-# Trend in the original scale of the outcome cases (deaths) wit 95% confidence intervals. 
-IRR_trend <- exp(cbind(Estimate=mort_poissontrend$coef, confint(mort_poissontrend)))
+# Count ratios with 95% confidence intervals
 
-(IRR_trend['index', ] - 1) *100
+count_ratio <- exp(cbind(
+  Estimate = coef(mort_poissontrend),
+  confint(mort_poissontrend)
+))
+
+# Percentage change in the expected number of deaths per week
+(count_ratio['index', ] - 1) * 100
 
 ```
 
-The result above indicates that from one week to another, the number of deaths increases in average 0,019% per week, with a 95% confidence interval of \[0,018%; 0,020%\].
+Subtracting 1 from the count ratio and multiplying by 100 gives the estimated percentage change per week.
 
-Another way in R to obtain the incidence rate ratio (IRR) is:
+The results above indicate that the expected number of deaths increases by 0,019% per week, with a 95% confidence interval of \[0,018%; 0,020%\].
 
-`{r: task-3-IRR-gtsummary}  mort_poissontrend %>%         gtsummary::tbl_regression(                          exponentiate = T,                          estimate_fun = ~style_number(.x, digits = 4)                        )`
+Another way to obtain the count ratio and its 95% confidence interval is to use the `tbl_regression()` function from the `gtsummary` package.
 
-This code creates a regression table using the `tbl_regression()` function from the `gtsummary` package. It has two arguments: - exponentiate = T (or TRUE) This tells R to exponentiate the coefficients. - estimate_fun = \~style_number(.x, digits = 4) This controls how the numbers in your table are formatted. .x represents each coefficient value, and style_number() formats it to 4 decimal places.
+```{r, task-3-count_ratio-gtsummary}
+
+mort_poissontrend %>%         
+  gtsummary::tbl_regression(exponentiate = TRUE,                          
+                            estimate_fun = ~style_number(.x, digits = 6)) %>%
+  gtsummary::modify_header(estimate = "**Count ratio**") %>% 
+  gtsummary::remove_abbreviation("IRR = Incidence Rate Ratio")
+
+```
+
+This code creates a regression table using the `tbl_regression()` function from the `gtsummary` package. It has two arguments: - exponentiate = T (or TRUE) This tells R to exponentiate the coefficients. - estimate_fun = \~style_number(.x, digits = 6) This controls how the numbers in your table are formatted. .x represents each coefficient value, and style_number() formats it to 6 decimal places.
+
+This model estimates the long-term trend without accounting for seasonality. We will explore seasonality and check how well the model fits the data in the following practicals.
 
 ## Task 4 {#task .unnumbered .unnumbered}
 
@@ -415,7 +460,7 @@ How could you take the changing population size of Spain into account in your an
 
 ## Help for Task 4 {#solution .unnumbered}
 
-To take the population into account, we need to include the population in the model. This is done by adding a term called `offset()`. The parameter beta for the offset, in this case for the population, will be forced to be 1; in other words, the offset will not affect the outcome. The advantage is that we can interpret the IRR of time in terms of mortality rate = cases/population.
+To take the population into account, we need to include the logarithm of population in the model. This is done by adding a term called `offset()`. The coefficient of the offset is fixed at 1.This allows us to account for changes in population size and interpret the trend in terms of mortality rates.
 
 ```{r, task-opt-regression-pois}
 mort_poissontrend_pop <- glm(cases ~  index + offset(log(pop)),
@@ -426,17 +471,29 @@ mort_poissontrend_pop <- glm(cases ~  index + offset(log(pop)),
 summary(mort_poissontrend_pop)
 
 # Trend in the original scale of the outcome cases (deaths) with 95% confidence intervals. 
-IRR_trend_pop <- exp(cbind(Estimate=mort_poissontrend_pop$coef, confint(mort_poissontrend_pop)))
+IRR_trend_pop <- exp(cbind(
+  Estimate = coef(mort_poissontrend_pop),
+  confint(mort_poissontrend_pop)
+))
 
+# Percentage change in mortality rate per week
 (IRR_trend_pop['index', ] - 1) *100
 
 ```
 
-The summary() function will only provide the coefficients in the original log scale of the poisson model. Another way of obtaining the IRR is by using `tbl_regression` with the argument `exponentiate = TRUE`:
+Another way to obtain the mortality rate ratio and its 95% confidence interval is to use the `tbl_regression()` function from the `gtsummary` package.
 
-`{r: task-regression-pois-pop-IRR}   mort_poissontrend_pop %>%            gtsummary::tbl_regression(                 exponentiate = TRUE,     estimate_fun = ~style_number(.x, digits = 4)   )`
+```{r, task-regression-pois-pop-IRR}   
+mort_poissontrend_pop %>%
+  gtsummary::tbl_regression(
+    exponentiate = TRUE,
+    estimate_fun = ~style_number(.x, digits = 6)
+  ) %>%
+  gtsummary::modify_header(estimate = "**Mortality rate ratio**") %>% 
+  gtsummary::remove_abbreviation("IRR = Incidence Rate Ratio")
+```
 
-plot the predicted and the original values:
+Plot the observed and fitted mortality rates:
 
 ```{r, task-opt-regression-pois-pop_plot-tidy}
 ggplot(data = mort_ts, mapping = aes(x = date_index)) +
@@ -446,16 +503,16 @@ ggplot(data = mort_ts, mapping = aes(x = date_index)) +
   scale_x_yearweek(date_labels = "%Y-%W", 
                    date_breaks = "1 year") +
   labs(
-    x = "Week", y = "Mortality rate",
-    title = "Spain: Mortality rate per week with fitted trend"
+    x = "Year-week", y = "Mortality rate",
+    title = "Observed weekly mortality rates and fitted trend, Spain, 2010–2019"
   ) +
   tsa_theme
 
 ```
 
-Compare the trend and IRR in the models with and without population.
+Compare the estimated trends in the models with and without the population offset. Does accounting for changes in population size affect your interpretation of the trend?
 
-For communication, it might be better to present the results in terms of number of deaths per 100.000 inhabitants (population), which would then be called the mortality rate. We will now plot the same trend but as rate per 100.000 inhabitants. For this purpose we must adjust both the observed and the fitted values by multiplying with 100.000.
+For communication, it might be better to present the results in terms ofmortality rates per 100,000 inhabitants. To do this, we multiply both the observed and fitted mortality rates by 100 000.
 
 ```{r, task-opt-3-regression-pois-mortrate-plot-tidy}
 
@@ -472,14 +529,14 @@ ggplot(data = mort_ts, mapping = aes(x = date_index)) +
   scale_x_yearweek(date_labels = "%Y-%W", 
                    date_breaks = "1 year") +
   labs(
-    x = "Week", y = "Mortality rate (per 100.000 pop)",
-    title = "Spain: Mortality rate per 100.000 population per week with fitted trend"
+    x = "Year-week", y = "Mortality rate per 100 000 inhabitants",
+    title = "Observed weekly mortality rates and fitted trend per 100 000 inhabitants, Spain, 2010–2019"
   ) +
   tsa_theme
 
 ```
 
-How do you interpret the IRR in the model for mortality rate?
+How do you interpret the estimated mortality rate ratio?
 
 ## Task 5 (Optional) {#task-5 .unnumbered}
 
