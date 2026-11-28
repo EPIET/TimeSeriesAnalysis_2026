@@ -1,19 +1,21 @@
 # Practical: Residuals and autocorrelation {.unnumbered}
 
-## Residuals patterns in Surveillance data {#title .unnumbered}
+## Residual patterns in surveillance data {#title .unnumbered}
 
 ```{r, knitr-global-chunk-t, include=FALSE, cache=FALSE}
 rm(list=ls())
 
-#source("_common.R")
+if (!require("pacman")) install.packages("pacman")
+
 pacman::p_load(
   here, 
   rio, 
   skimr,
   tsibble,
-  tidyverse,
   TSA,
-  lmtest
+  lmtest, 
+  MASS,
+  tidyverse
 )
 
 # Create tsa_theme from previous exercise to be used in ggplot.
@@ -35,55 +37,74 @@ tsa_theme <- theme_bw() +
 
 By the end of this session, participants should be able to:
 
--   decide on remaining actions when modelling surveillance data after you have accounted for trend and periodicity
+-   assess model fit and assumptions after accounting for trend and periodicity in surveillance data
+
+-   identify remaining periodicity
 
 -   detect autocorrelation in the residuals of models on surveillance data
 
-## Task 1 {#task-1 .unnumbered .unnumbered}
+-   assess whether including lagged counts in regression models reduces autocorrelation
 
-*Start by fitting the model with trend and two cosines and two sines.*
+## Task 1 {#task-1 .unnumbered}
 
-*Assuming you are happy with that Poisson regression model from the previous session, check whether this regression model was appropriate in this case.*
+*Start by fitting the negative binomial model with a trend and two pairs of sines and cosines (52- and 26-week periods), as in the Periodicity practical.*
+
+*Assess the model assumptions and check for any remaining patterns in the residuals.*
 
 ```{r, task-1-source-Rscript}
 load(here("data","mort_period.RData"))
+
+# Fit the negative binomial model from the Periodicity practical.
+mort_trendsin2cos2_nb <- MASS::glm.nb(
+    cases ~ index + sin52 + cos52 + sin26 + cos26,
+    data = mort_period
+)
+
 ```
 
-*Start by fitting the model with trend and two cosines and two sines (same as in practical 5).*
-
-*Then, assuming you are happy with that model, check whether this regression model was appropriate in this case.*
-
-*Plot the residuals from the model.*
+Calculate and plot the deviance residuals from the model.
 
 ```{r, task-2-calculate-residuals}
 
-mort_res <-
-    mort_period %>%
-    mutate(res=residuals(mort_trendsin2cos2)
+mort_res <- mort_period %>%
+    mutate(
+        res = residuals(mort_trendsin2cos2_nb,
+                        type = "deviance")
     )
+
 ```
 
 ```{r, task-2-repeat-session-3-tidy}
+
+max.index <- max(mort_res$index)
+
 ggplot(data = mort_res) +
-    geom_point(
+    geom_line(
         mapping = aes(x = date_index, y = res)
     ) +
-    scale_x_yearweek(date_labels = "%Y-%W", 
-                   date_breaks = "1 year") +
-    labs(x = "Year week", 
-         y = "Residuals", 
-         title = "Spain: number of deaths. Residuals model trend + 2 sine + 2 cosine."
+    geom_hline(yintercept = 0, linetype = "dashed") +
+    scale_x_yearweek(
+        breaks = tsibble::yearweek(paste0(2010:2019, " W01")),
+        labels = paste0(2010:2019, "-01")
+    ) +
+    labs(
+        x = "Year-week",
+        y = "Deviance residuals",
+        title = "NB model residuals: trend + 52- and 26-week periods"
     ) +
     tsa_theme
+
 ```
 
-*Start by examining the residuals against time. Do you see any additional patterns?*
+*Examine the residuals against time. Do you see any remaining patterns?*
 
-## Task 2 {#task-2 .unnumbered .unnumbered}
+Do you consider this model appropriate?
 
-*Is there any other periodicity that can be observed in the residuals?*
+## Task 2 {#task-2 .unnumbered}
 
-To assess whether there is any more periodicity in the data, one can produce a periodogram of the residuals (use code from case study 5).
+*Is there any remaining periodicity that can be observed in the residuals?*
+
+To assess remaining periodicity in the data, we can produce a periodogram of the residuals (use code from the Periodicity practical).
 
 ```{r, task-1-periodogram}
 mort_residual_period <- TSA::periodogram(mort_res$res)
@@ -94,149 +115,399 @@ mort_residual_period_recip <-
         spec = mort_residual_period$spec
     ) %>%
     arrange(desc(spec)) %>% 
-    mutate(reciprocal_freq = 1 / freq)  # here in weeks
+    mutate(reciprocal_freq = 1 / freq)  # period in weeks
 
-view(mort_residual_period_recip)
+head(mort_residual_period_recip, 10)
 
-# breaks every 13, equivalent to every 3 months approximately.
+# Breaks every 13 weeks, approximately 3 months 
 ggplot(data = mort_residual_period_recip, aes(x = reciprocal_freq, y = 2*spec)) +
     geom_line() +
-    scale_x_continuous(limits = c(0, 160), breaks=seq(0, 160, 13)) +
+    scale_x_continuous(limits = c(0, 200), breaks=seq(0, 200, 13)) +
     labs(x = "Period (weeks)", 
          y = "Spectral density",
-         title="Periodogram residuals of model with trend + 2 sine + 2 cosine.") +
+         title="Periodogram of residuals: trend + 52- and 26-week periods") +
     tsa_theme
 
 ```
 
-*Plot the residuals again, but now using lines.*
+*Which periods stand out in the periodogram?*
 
-```{r, task-2-residuals-lines}
-max.index <- max(mort_res$index)
+*Does the periodicity make sense from an epidemiological perspective?*
 
-ggplot(data = mort_res) +
-    geom_line(
-        mapping = aes(x = index, y = res)
+The periodogram of the residuals shows a strong peak at around 77 weeks. We will explore a 78-week period, corresponding to approximately one and a half years, to assess whether this additional periodic component improves the model fit.
+
+Generate sine and cosine terms for a 78-week period and add them to the previous negative binomial regression model.
+
+```{r, task-2-trend-sin3-cos3}
+
+# Calculate the sine and cosine terms for a 78-week period
+mort_period <- mort_period %>%
+    mutate(
+        sin78 = sin(2 * pi * index / 78),
+        cos78 = cos(2 * pi * index / 78)
+    )
+
+# Fit the negative binomial model with three pairs of sine and cosine terms
+mort_trendsin3cos3_nb <- MASS::glm.nb(
+    cases ~ index + sin52 + cos52 + sin26 + cos26 + sin78 + cos78,
+    data = mort_period
+)
+
+```
+
+As in the Periodicity practical, we use the likelihood ratio test (LRT) to assess whether adding the new sine and cosine terms improves the model fit.
+
+Remember that the two models must be nested and fitted to the same observations.
+
+```{r, task-2-lrt}
+
+# Check the number of observations in both models
+nobs(mort_trendsin2cos2_nb)
+nobs(mort_trendsin3cos3_nb)
+
+# Compare the two nested models
+lrtest(mort_trendsin2cos2_nb, mort_trendsin3cos3_nb)
+
+```
+Does adding the sine and cosine terms for the 78-week period improve the model fit?
+
+Does a statistically significant result mean that the model is now appropriate?
+
+An improvement in model fit does not necessarily mean that the model is appropriate. We should also examine the residuals.
+
+*Calculate the deviance residuals from the new model and compare them with those from the previous model.*
+
+```{r, task-2-calculate-new-residuals}
+
+mort_res <- mort_res %>%
+    mutate(
+        res3_nb = residuals(mort_trendsin3cos3_nb,
+                         type = "deviance")
+    )
+
+mort_res %>%
+    pivot_longer(
+        cols = c(res, res3_nb),
+        names_to = "model",
+        values_to = "residuals"
+    ) %>%
+    mutate(
+        model = factor(
+            model,
+            levels = c("res", "res3_nb"),
+            labels = c(
+                "Trend + 52- and 26-week periods",
+                "Trend + 52-, 26- and 78-week periods"
+            )
+        )
+    ) %>%
+    ggplot(aes(x = index, y = residuals)) +
+    geom_line() +
+    geom_hline(yintercept = 0, linetype = "dashed") +
+    facet_wrap(~model, ncol = 1) +
+    scale_x_continuous(
+        limits = c(0, max.index),
+        breaks = seq(0, max.index, 78)
     ) +
     labs(
-        x = "Week",
-        y = "Residuals",
-        title = "Regression model with trend + 2 sine + 2 cosine."
+        x = "Week index",
+        y = "Deviance residuals",
+        title = "Comparison of negative binomial model residuals"
     ) +
-    scale_x_continuous(limits = c(0, max.index), breaks=seq(0, max.index, 77)) +
     tsa_theme
-```
 
-*Based on these latest plots, do you see a patterns that can explain the periodogram? Does the periodicity makes sense in this case?*
-
-## Task 3 {#task-3 .unnumbered .unnumbered}
-
-*Check if there is autocorrelation that needs to be included in the model.*
-
-Note that there are `acf` functions in more than one package, so to be sure you are using the using the base R function here use `stats::acf`. Graph the autocorrelation on 50 (week) lags.
-
-```{r, task-2-acf-residuals-plot-tidy}
-mort_res_acf <- stats::acf(mort_res$res, lag.max = 52, type="correlation", plot=TRUE)
-
-mort_res_acf
 
 ```
 
-The `acf` function estimates and plots autocorrelations. The lag zero vertical line is omitted in this plot because it is always 1, as it shows the correlation of each observation with itself (lag zero).
+Compare the residuals from the two models. Are there still temporal patterns?
 
-The first vertical line shows the correlation between each observation and the observation just before it (lag one). The second shows the correlation between each observation and the observation before last (lag two). And so on.
+### Optional exercise {.unnumbered}
 
-The blue dotted line is the 95% confidence interval. Vertical lines which reach above or below the confidence limits indicate significant autocorrelations, and is based on the number of observations.
+*Produce a periodogram of the residuals from the new 
+model and compare it with the previous periodogram.*
 
-If there was no significant autocorrelation, only the first vertical line would exceed the confidence interval.
+```{r, task-2-new-residual-periodogram}
 
-*Test for significant autocorrelations in the residuals.*
+mort_residual_period3 <- TSA::periodogram(mort_res$res3_nb)
 
-```{r, task-2-Ljung-Box-residuals}
-Box.test(mort_res$res, type = "Ljung-Box")
+mort_residual_period3_recip <-
+    tibble(
+        freq = mort_residual_period3$freq,
+        spec = mort_residual_period3$spec
+    ) %>%
+    arrange(desc(spec)) %>%
+    mutate(reciprocal_freq = 1 / freq)  # period in weeks
+
+head(mort_residual_period3_recip, 10)
+
+bind_rows(
+    mort_residual_period_recip %>%
+        mutate(model = "Trend + 52- and 26-week periods"),
+    mort_residual_period3_recip %>%
+        mutate(model = "Trend + 52-, 26- and 78-week periods")
+) %>%
+    ggplot(aes(x = reciprocal_freq, y = 2*spec)) +
+    geom_line() +
+    facet_wrap(~model, ncol = 1) +
+    scale_x_continuous(
+        limits = c(0, 200),
+        breaks = seq(0, 200, 13)
+    ) +
+    labs(
+        x = "Period (weeks)",
+        y = "Spectral density",
+        title = "Comparison of periodograms of NB model residuals"
+    ) +
+    tsa_theme
+
 ```
 
-The Ljung-Box is a portmanteau-type test that examines the null hypothesis of independence of the residuals in a time series. A significant $p$-value suggests that there is autocorrelation in the data, that is, the observations are not independent. A portmanteau-type test are those where the alternative hypothesis is not well defined, but the null hypothesis (here independence) is well defined.
+Has the inclusion of the 78-week period reduced the remaining periodicity?
 
-In the acf plot, the first 7 lags where statistically significant. We will add them one by one, checking everytime if the added lag(s) improve the fit of the model.
+Would you consider adding further sine and cosine terms? Discuss the epidemiological relevance.
 
-```{r, task-2-lag}
+## Task 3 {#task-3 .unnumbered}
 
-mort_res <-
-    mort_res %>%
+*Check for remaining autocorrelation in the model residuals.*
+
+Although the negative binomial model accounts for overdispersion, autocorrelation may still be present in the residuals.
+
+Plot the autocorrelation function (ACF) of the residuals for lags up to 52 weeks.
+
+```{r, task-3-acf-residuals}
+# ACF of the negative binomial model residuals
+stats::acf(
+    mort_res$res3_nb,
+    lag.max = 52,
+    main = "ACF of negative binomial model residuals"
+)
+
+```
+
+Lag 0 is always 1. Lag 1 shows the correlation between residuals one week apart, lag 2 two weeks apart, and so on.
+
+The blue dashed lines represent approximate 95% confidence limits under the assumption of no autocorrelation. In the absence of autocorrelation, most values beyond lag zero are expected to fall within these limits.
+
+Is there evidence of remaining autocorrelation in the negative binomial model residuals?
+
+At which lags do you observe autocorrelation?
+
+### Optional exercise {.unnumbered}
+
+The Ljung–Box test assesses autocorrelation across 
+several lags simultaneously.
+
+```{r, task-3-ljung-box}
+Box.test(mort_res$res3_nb, lag = 52, type = "Ljung-Box")
+```
+
+*Are the results consistent with the ACF plot?*
+
+## Task 4 {#task-4 .unnumbered}
+
+The ACF plot suggests remaining autocorrelation at several lags. We will add lagged counts to the negative binomial model and assess whether they improve the model fit.
+
+```{r, task-5-generate-lags} 
+
+mort_period <- mort_period %>%
+    arrange(index) %>%
     mutate(
-        lag1 =  dplyr::lag(cases, n=1),   
-        lag2 =  dplyr::lag(cases, n=2),   
-        lag3 =  dplyr::lag(cases, n=3),   
-        lag4 =  dplyr::lag(cases, n=4),   
-        lag5 =  dplyr::lag(cases, n=5),
-        lag6 =  dplyr::lag(cases, n=6),    
-        lag7 =  dplyr::lag(cases, n=7), 
-        lag8 =  dplyr::lag(cases, n=8)  
+        lag1 = dplyr::lag(cases, n = 1),
+        lag2 = dplyr::lag(cases, n = 2),
+        lag3 = dplyr::lag(cases, n = 3),
+        lag4 = dplyr::lag(cases, n = 4),
+        lag5 = dplyr::lag(cases, n = 5)
+    )
 
-   )
-   
-   
-head(as.data.frame(mort_res), 10)
-tail(as.data.frame(mort_res), 10)    
-```
-
-As the data is lagged, the missing value (NA) must be added at the beginning. For lag 1, the value for 2010 week 1 is shifted to 2010 week 2, and therefore week 1 is now NA. That also means that the last value in 2019 week 52 is lost and has been replaced by what it wasw before 2019 week 51. If you are not familiar with lags, take some time to study how the data has been shifted.
-
-Another side effect of lagging the data, is that the number of observations decreases. At the start, we had 521 observations (years and weeks); after lag 1, we have 520; after lag 2, we have 519; etc. This affects when we wish to compare the models using the likelihood ratio test (LRT), since the test requires that the same dataset be used in the two models being compared. For that reason, the original model will be refitted, but each time using the same data as in the model with lags.
-
-No we will add one lag at a time to our model with trend, cos52, sin52, cos26 and sin26, and test if adding each lag improves the fit. This could be automatized, but we will do it "by hand" this time, in order to secure that we understand what is going on.
-
-Normally, all lags are added. Even if only lag 2 is significant, lag 1 will also be included in the model. This is because it is difficult to imagine that only the observation lagged 2 is important, but not the one lagged 1.
-
-```{r, task-2-lag2}
-
-# Model with trend+2sin+2cos+lag1
-mort_trendsin2cos2_ac <- update(mort_trendsin2cos2, .~. + lag1,
-                                data=mort_res)
-
-  
-summary(mort_trendsin2cos2_ac)
-
-# Model with trend+2sin+2cos and first row removed.
-mort_trendsin2cos2_removeNA <- update(mort_trendsin2cos2, .~.,
-                                data=mort_res[-1,])
-                          
-summary(mort_trendsin2cos2_removeNA)
-
-lrtest(mort_trendsin2cos2_removeNA, mort_trendsin2cos2_ac)
-
-## Lag 2: update mdoel with lag 1
-mort_trendsin2cos2_ac <- update(mort_trendsin2cos2_ac, .~. + lag2,
-                                data=mort_res)
-
-  
-summary(mort_trendsin2cos2_ac)
-
-# Model with trend+2sin+2cos and rows removed.
-mort_trendsin2cos2_removeNA <- update(mort_trendsin2cos2, .~.,
-                                data=mort_res[-(1:2),])
-                          
-summary(mort_trendsin2cos2_removeNA)
-
-lrtest(mort_trendsin2cos2_removeNA, mort_trendsin2cos2_ac)
-
-
-##### Continue to test the remaining significant lags. #############################
+head(as.data.frame(mort_period), 10)   
 
 ```
 
-*How many lags were included in the best model? Does the model make sense?*
+Lag 1 contains the number of deaths in the previous week, lag 2 two weeks earlier, and so on. Creating lagged variables introduces missing values at the beginning of the time series.
 
-*Which model would you choose to present to your boss?*
+To compare models using the likelihood ratio test (LRT), all models must be fitted to the same observations. 
 
-## Task 3 (Optional) {#task-3 .unnumbered}
+As we will investigate up to five lags in the optional exercise, we exclude the first five observations.
 
-*As a sensitivity analysis, add yet one more lag (not significant in the acf) to the last model. Does that lag improve the model?*
+```{r, task-5-complete-data}
 
-## Task 4 (Optional) {#task-4 .unnumbered}
+# Create a common dataset for model comparison.
+mort_lag <- mort_period %>%
+    drop_na(lag1, lag2, lag3, lag4, lag5)
 
-*Carry out similar analyzes for men and for women.*
+# Compare the number of observations.
+nrow(mort_period)
+nrow(mort_lag)
+
+```
+
+Refit the negative binomial regression model without lagged terms using the reduced dataset.
+
+```{r, task-5-model-lag0}
+
+mort_nb_lag0 <- MASS::glm.nb(
+    cases ~ index + sin52 + cos52 + sin26 + cos26 + sin78 + cos78,
+    data = mort_lag
+)
+
+```
+
+*Add the number of deaths in the previous week (lag 1) to the model. Use the likelihood ratio test to assess whether including this variable improves the model fit.*
+
+```{r, task-5-model-lag1}
+
+mort_nb_lag1 <- MASS::glm.nb(
+    cases ~ index + sin52 + cos52 + sin26 + cos26 + sin78 + cos78 +
+        lag1,
+    data = mort_lag
+)
+
+# Compare the models with and without lag 1.
+lrtest(mort_nb_lag0, mort_nb_lag1)
+
+```
+
+*Does including lag 1 improve the model fit?*
+
+*Add lag 2 to the model that already includes lag 1.*
+
+```{r, task-5-model-lag2}
+
+mort_nb_lag2 <- MASS::glm.nb(
+    cases ~ index + sin52 + cos52 + sin26 + cos26 + sin78 + cos78 +
+        lag1 + lag2,
+    data = mort_lag
+)
+
+# Assess the additional contribution of lag 2.
+lrtest(mort_nb_lag1, mort_nb_lag2)
+
+```
+
+*Does including lag 2 further improve the model fit?*
+
+### Optional exercise {.unnumbered}
+
+*Repeat the previous steps for lags 3, 4 and 5. Compare each model with the previous model.*
+
+```{r, task-5-model-remaining-lags}
+
+# Add lag 3.
+mort_nb_lag3 <- MASS::glm.nb(
+    cases ~ index + sin52 + cos52 + sin26 + cos26 + sin78 + cos78 +
+        lag1 + lag2 + lag3,
+    data = mort_lag
+)
+
+lrtest(mort_nb_lag2, mort_nb_lag3)
+
+
+# Add lag 4.
+mort_nb_lag4 <- MASS::glm.nb(
+    cases ~ index + sin52 + cos52 + sin26 + cos26 + sin78 + cos78 +
+        lag1 + lag2 + lag3 + lag4,
+    data = mort_lag
+)
+
+lrtest(mort_nb_lag3, mort_nb_lag4)
+
+
+# Add lag 5.
+mort_nb_lag5 <- MASS::glm.nb(
+    cases ~ index + sin52 + cos52 + sin26 + cos26 + sin78 + cos78 +
+        lag1 + lag2 + lag3 + lag4 + lag5,
+    data = mort_lag
+)
+
+lrtest(mort_nb_lag4, mort_nb_lag5)
+
+```
+
+*Based on the likelihood ratio tests, how many lags would you include in the model?*
+
+## Task 5 {#task-5 .unnumbered}
+
+Assess whether including lagged counts has reduced autocorrelation in the residuals.
+
+```{r, task-5-calculate-residuals}
+
+mort_lag <- mort_lag %>%
+    mutate(
+        res_nb_lag0 = residuals(mort_nb_lag0,
+                               type = "deviance"),
+        res_nb_lag2 = residuals(mort_nb_lag2,
+                               type = "deviance")
+    )
+
+```
+
+*Compare the ACF of the residuals from the models 
+with and without lagged counts.*
+
+```{r, task-5-compare-acf}
+stats::acf(
+    mort_lag$res_nb_lag0,
+    lag.max = 52,
+    main = "ACF of residuals: without lags"
+)
+
+stats::acf(
+    mort_lag$res_nb_lag2,
+    lag.max = 52,
+    main = "ACF of residuals: with lags 1 and 2"
+)
+```
+
+Has including lagged counts reduced autocorrelation in the residuals?
+
+Is there still evidence of autocorrelation?
+
+### Optional exercise {.unnumbered}
+
+*Assess remaining autocorrelation using the Ljung–Box test.*
+
+```{r, task-5-ljung-box}
+Box.test(mort_lag$res_nb_lag2, lag = 52, type = "Ljung-Box")
+```
+
+*Are the results consistent with the ACF plot?*
+
+```{r, task-5-compare-residuals}
+
+mort_lag %>%
+    pivot_longer(
+        cols = c(res_nb_lag0, res_nb_lag2),
+        names_to = "model",
+        values_to = "residuals"
+    ) %>%
+    mutate(
+        model = factor(
+            model,
+            levels = c("res_nb_lag0", "res_nb_lag2"),
+            labels = c("Without lags", "With lags 1 and 2")
+        )
+    ) %>%
+    ggplot(aes(x = index, y = residuals)) +
+    geom_line() +
+    geom_hline(yintercept = 0, linetype = "dashed") +
+    facet_wrap(~model, ncol = 1) +
+    scale_x_continuous(
+        limits = c(0, max.index),
+        breaks = seq(0, max.index, 78)
+    ) +
+    labs(
+        x = "Week index",
+        y = "Deviance residuals",
+        title = "Negative binomial model residuals with and without lags"
+    ) +
+    tsa_theme
+
+```
+
+## Task 6 (Optional) {#task-6 .unnumbered}
+
+*Repeat the analysis separately for men and women. 
+Do you observe similar patterns?*
 
 ```{r, task-save}
 # save(mort_res, file = here("data", "mort_res.RData"))
